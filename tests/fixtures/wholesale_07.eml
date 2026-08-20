@@ -1,0 +1,1280 @@
+Delivered-To: maurice@sargigroup.com
+Received: by 2002:a05:7108:3b29:b0:584:20fb:6dad with SMTP id ba41csp3214670gdb;
+        Mon, 17 Aug 2026 15:27:01 -0700 (PDT)
+X-Received: by 2002:a05:620a:601b:b0:930:b19a:9d5e with SMTP id af79cd13be357-936d1fd9f8bmr3138253085a.1.1787005620738;
+        Mon, 17 Aug 2026 15:27:00 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1787005620; cv=none;
+        d=google.com; s=arc-20260327;
+        b=pUmB5wH3bghFrUa1drWaIoHdYZaFiBMBldwEYqUzacQ3yY4ROSajNhAWDmL2Ymckab
+         k6yaUTCE/Q5kJqzLPhQQiVxK50Q38XCeOUPgW8cMPLC6Z57rr3hVCOfmE2ESrij0hVRQ
+         oKPqvPs7zctZPf4BBFK/zSAmEAjBp7JU1iTRcs6WoROYnPbxXIWEo1i8FwAivEoU2DIo
+         pWwe6/RFoQepTomkkzBI7Fq43VxsAKo18gOkzh+G4kpMAhxQP76/5QKR1pBy8no3LW7g
+         KtM3ywoxOnyvhDyevrLk/Nc6V/Voen+SGUf8xW9KKwIZZy9q5B7W4XFBh5jhii6XxIE0
+         s0SA==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20260327;
+        h=list-unsubscribe-post:list-unsubscribe:mime-version:subject:to
+         :reply-to:from:date:message-id:dkim-signature:dkim-signature;
+        bh=4ebxZdfw8ib6mTG3M4e/fd16jL/xhra3ucxEIUFGj30=;
+        fh=BCFDBci7rCkZoiEGBJv77klUTOXf2m3umZ15RL2MiIQ=;
+        b=nxEXbw+qe2WlVXen/eSwBdSN3viJmhohvKbtfMFP+oLtexAUcRqUZXPakz1qmgRPFN
+         f4EktMcNnJVbpKGBied/5scDXG6AJ73eqCOgWEZw8KjXI4SU22yyX/IBf5D3iINvjmlg
+         u1HQhQMJ4Dub12zPEeQ1HOStAQYxh09nRjGwEQSr/laSMd+hkVpE9HmEjrYyBtX+RbUB
+         NEy84ExGXj0UyRSzmKpOBkYWyEnpHg5jEnb9p59x1YZ9t9P5jfn/rorjqIUYpJp17anh
+         KDeSqR8uRAimwlzGP5cKlPDs5lvkM0UbgNTCN+7zc3N3BUGQVkN/HVasB9wOYqxjCGPm
+         NGdA==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@shared1.ccsend.com header.s=12042023 header.b=O7mcfB0V;
+       dkim=pass header.i=@auth.ccsend.com header.s=1000073432 header.b=AOseIemy;
+       spf=pass (google.com: domain of aikyeahudtvcesepgwnm5qq==_1122677525854_/2indljlee6envowpsawsg==@in.constantcontact.com designates 208.75.123.162 as permitted sender) smtp.mailfrom="AiKyEahudTVCESePgWnm5QQ==_1122677525854_/2iNdlJlEe6envoWPsAWSg==@in.constantcontact.com";
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=ccsend.com
+Return-Path: <AiKyEahudTVCESePgWnm5QQ==_1122677525854_/2iNdlJlEe6envoWPsAWSg==@in.constantcontact.com>
+Received: from ccm27.constantcontact.com (ccm27.constantcontact.com. [208.75.123.162])
+        by mx.google.com with ESMTPS id af79cd13be357-937010ccc68si189660185a.125.2026.08.17.15.27.00
+        for <maurice@sargigroup.com>
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Mon, 17 Aug 2026 15:27:00 -0700 (PDT)
+Received-SPF: pass (google.com: domain of aikyeahudtvcesepgwnm5qq==_1122677525854_/2indljlee6envowpsawsg==@in.constantcontact.com designates 208.75.123.162 as permitted sender) client-ip=208.75.123.162;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@shared1.ccsend.com header.s=12042023 header.b=O7mcfB0V;
+       dkim=pass header.i=@auth.ccsend.com header.s=1000073432 header.b=AOseIemy;
+       spf=pass (google.com: domain of aikyeahudtvcesepgwnm5qq==_1122677525854_/2indljlee6envowpsawsg==@in.constantcontact.com designates 208.75.123.162 as permitted sender) smtp.mailfrom="AiKyEahudTVCESePgWnm5QQ==_1122677525854_/2iNdlJlEe6envoWPsAWSg==@in.constantcontact.com";
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=ccsend.com
+DKIM-Signature: v=1; q=dns/txt; a=rsa-sha256; c=relaxed/relaxed; s=12042023; d=shared1.ccsend.com; h=date:mime-version:subject:X-Feedback-ID:X-250ok-CID:message-id:from:reply-to:list-unsubscribe:list-unsubscribe-post:to; bh=4ebxZdfw8ib6mTG3M4e/fd16jL/xhra3ucxEIUFGj30=; b=O7mcfB0V1tYGr3yB9yccukM4OU+jXvaEjmbaWwKd2IfcyQsXLaDlmCx/K5pIkla+eKE+wXqb7GSXvnL41iIBo2EZKSJGs3coXbSu6DpIkrp4UBDJmwKiw3R5MGmh+RIflordCWK0kLR1IuDwlkxw4eDjAtFs6IFr1tnJaPa2LCGxgAr9VPheI9NW8iEdYEA93BBwrDHKvQZ8NT3i3ZXzCcwyTt6O8Q8RH8rttooxSaMClczSy1U9tua5ePbmP8aKKnbxUnPlFFADvg1dMcvZT+ld1P2kml6yP4B75MA+e0MHsI3hI5DVCFVvlwNDc2mAQYaYmMM2gVOr2stTN/oB6g==
+DKIM-Signature: v=1; q=dns/txt; a=rsa-sha256; c=relaxed/relaxed; s=1000073432; d=auth.ccsend.com; h=date:mime-version:subject:X-Feedback-ID:X-250ok-CID:message-id:from:reply-to:list-unsubscribe:list-unsubscribe-post:to; bh=4ebxZdfw8ib6mTG3M4e/fd16jL/xhra3ucxEIUFGj30=; b=AOseIemyNwmZrzHBCkeZMXUfJltVJJr80zqYc+JNNUGY+arIa0YAvLec9WDBeM97AKpw0rluryvvDDzmy2Ac9y0mQToNpLnBBRYsQAWyX7e2pSdckTdAMy+IEvkcfYwGggoFpTtx6lP/nd9E9UqfqCS2GK6tTZoz9gBmT67nJjg=
+Message-ID: <1142339448390.1122677525854.1854118193.0.741826JL.2002@synd.ccsend.com>
+Date: Mon, 17 Aug 2026 18:27:00 -0400 (EDT)
+From: 
+	HomeSellers Real Estate Group <erniethetitleguy-gmail.com@shared1.ccsend.com>
+Reply-To: dispo@homesellersres.com
+To: maurice@sargigroup.com
+Subject: =?utf-8?Q?=F0=9F=9A=A8_NEW_Hollywood_Duplex?=
+ =?utf-8?Q?_|_$374K_Buy_=E2=86=92_$550K_ARV?=
+MIME-Version: 1.0
+Content-Type: multipart/alternative; 
+	boundary="----=_Part_239054804_2019561815.1787005620290"
+List-Unsubscribe: <https://visitor.constantcontact.com/do?p=un&m=001bCPQbrFT3d2-iBgmqFBqKg%3D%3D&se=001L1rH30VdRQr-SGEBWa-LUg%3D%3D&t=001EkZLEx15CcE%3D&llr=5kdxmsvab>
+List-Unsubscribe-Post: List-Unsubscribe=One-Click
+X-Campaign-Activity-ID: 88ac846a-1b9d-4d50-8449-e3e05a79b941
+X-250ok-CID: 88ac846a-1b9d-4d50-8449-e3e05a79b941
+X-Channel-ID: ff688d76-5265-11ee-9e9e-fa163ec0164a
+X-Return-Path-Hint: AiKyEahudTVCESePgWnm5QQ==_1122677525854_/2iNdlJlEe6envoWPsAWSg==@in.constantcontact.com
+X-Roving-Campaignid: 1142339448390
+X-Roving-Id: 1122677525854.1854118193
+X-Feedback-ID: ff688d76-5265-11ee-9e9e-fa163ec0164a:88ac846a-1b9d-4d50-8449-e3e05a79b941:1122677525854:CTCT
+X-CTCT-ID: ff580dd4-5265-11ee-9e9e-fa163ec0164a
+
+------=_Part_239054804_2019561815.1787005620290
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+Email from Ernie The Title Guy Two units, rental + flip potential, plus a n=
+ew $279K Sunrise deal and 3 more South Florida opportunities. HomeSellers R=
+eal Estate Group Licensed Florida Brokerage Investor Wholesale & Traditiona=
+l Brokerage About Our Inventory: The investment properties we advertise are=
+ either: =E2=80=A2 Directly owned by our group =E2=80=A2 Contractually cont=
+rolled by our group =E2=80=A2 Or officially listed through our brokerage We=
+ are a licensed brokerage and always welcome co-broke opportunities with ag=
+ents and wholesalers. CALL OR TEXT (786) 250-2361=E2=80=AC Now Hiring =E2=
+=80=94 Traditional, Commercial & Investment Real Estate We=E2=80=99re build=
+ing a team that understands all sides of the business. =E2=80=A2 100% Commi=
+ssion for Licensed Realtors =E2=80=A2 Residential & Commercial Listings =E2=
+=80=A2 Investment & Wholesale Deal Flow =E2=80=A2 In-House Buyers, Leads & =
+Support =E2=80=A2 No License? Learn Acquisitions & Wholesaling Visit our We=
+bsite 2512 Arthur St HOLLYWOOD, FL 33020 Asking Price: =EF=BB=BF$374,999 NE=
+W DEAL!!! Escrow: $10,000 ARV Value: $550,000 =EF=BB=BF Comps: 1212 n 22 av=
+e----- sold for $599,000 2515 Garfield St---- sold for $550,000 Notes: HOLL=
+YWOOD DUPLEX VALUE-ADD OPPORTUNITY | 2 UNITS | STRONG RENTAL + FLIP POTENTI=
+AL Investor opportunity in Hollywood, FL featuring a duplex configuration w=
+ith two 1-bedroom / 1-bath units. This property offers multiple exit strate=
+gies =E2=80=94 renovate and hold for rental income, reposition for stronger=
+ rents, or improve and resell. The property already features two electrical=
+ panels, separate window A/C systems, two kitchens, and separate living spa=
+ces, giving investors a solid foundation for a value-add renovation. The ki=
+tchens were reportedly renovated in 2019. Located on a 6,480 SF lot with ap=
+proximately 1,000 SF of living area, this is a straightforward Hollywood in=
+vestment with upside for an investor who can renovate efficiently. 2 Units =
+| 1 Bed / 1 Bath Each | $550K ARV | Value-Add Duplex | Rental or Resale Exi=
+t Showing Instructions: By Appointment. =EF=BB=BF24-hour Notice.   Bed: 2 B=
+ath: 2 Liv Sqft: 1,000 Lot Sqft: 6,480 More Pictures 8016 NW 27th Ct, SUNRI=
+SE, FL 33322 Asking Price: =EF=BB=BF$279,999 NEW DEAL!!! Escrow: $10,000 AR=
+V Value: $430,000 =EF=BB=BFComps: 7600 S Aragon Blvd---- Sold for $470,000 =
+2491 Aragon Blvd ----- Sold for $450,000 Notes: STRAIGHTFORWARD 3-BEDROOM F=
+IX & FLIP TOWNHOUSE | 1,600+ SQ FT =E2=80=93 STRONG ARV UPSIDE Showing Inst=
+ructions: By Appointment. =EF=BB=BF24-hour Notice.   Bed: 3 Bath: 3 Liv Sqf=
+t: 1,636 Lot Sqft: 1,971 More Pictures 440 NW 133rd St, NORTH MIAMI, FL 331=
+68 Asking Price: =EF=BB=BF$309,999 REDUCTION!!! Escrow: $10,000 ARV Value: =
+$455,000 =EF=BB=BFComps: 360 NW 136 ST---2/1-----SOLD FOR $460,000 575 NW 1=
+39 TERR----2/1----SOLD FOR $455,000 200 NW 134 ST----2/1 ----SOLD FOR $455,=
+000 Notes: STRAIGHTFORWARD 2/1 FIX & FLIP | STRONG ARV COMPS =E2=80=93 LARG=
+E LOT UPSIDE Showing Instructions: By Appointment. =EF=BB=BF24-hour Notice.=
+   Bed: 2 Bath: 1 Liv Sqft: 895 Lot Sqft: 7,920 More Pictures 5347 Grand Ba=
+nks Blvd, Greenacres, FL 33463 Asking Price: $589,000 NEW DEAL!!! Escrow: $=
+10,000 ARV Value: $700,000 Notes: 5 BEDROOM POOL HOME | 2,900+ SQ FT IN GAT=
+ED COMMUNITY | STRONG FIX & FLIP POTENTIAL | $700K+ ARV Showing Instruction=
+s: By Appointment =E2=80=94 24 Hours Notice Bed: 5 Bath: 3 Liv Sqft: 2,941 =
+Lot Size: 8,126 More Pictures 1489 W 34th St, Riviera Beach, FL Asking Pric=
+e: $220,000 HOT DEAL!!!   Escrow: $10,000   ARV Value: $330,000   Notes: SF=
+R | Tenant month-to-month | Cosmetic update =3D strong upside   Showing Ins=
+tructions: By Appointment. =EF=BB=BF24hrs Notice.   Bed: 3 Bath: 1 Liv Sqft=
+: 1,008 Lot Size: 5,482 More Pictures CALL OR TEXT (786) 250-2361=E2=80=AC =
+HomeSellers Real Estate Group operates as both a licensed brokerage and a d=
+irect investment group. We list properties traditionally, represent buyers =
+and sellers, and also advertise direct investment opportunities owned or co=
+ntrolled by our group. Licensed Florida Real Estate Brokerage MLS Participa=
+nt Co-Broke Friendly Investor & Traditional Closings DISCLAIMER: Our lists =
+are not sold to any outside vendor. To be removed from this e-mail list, ei=
+ther reply to this message with the word 'unsubscribe' in the subject line =
+and your full name, or choose the Unsubscribe option below. FFD LLC. does n=
+ot exist to render, and does not give legal, tax, economic, or advice. Valu=
+es are strictly an opinion. Consult an appraiser for true values. Furthermo=
+re, FFD LLC. disclaims all liability for the actions or inaction's taken or=
+ not taken as a result of communications from or to its officers, directors=
+ and members.    * DISCLAIMER: The sale of these Properties may be continge=
+nt upon a successful close by the Buyer under Contract with the Current Own=
+er. Seller (ERG Global Solutions, Inc and/or HomeSellers Real Estate Servic=
+es) may not be the owner of record of the applicable court jurisdiction; ho=
+wever, the Seller holds equitable interest in the property along with owner=
+ of record and such interest is documented by an executed Purchase and Sale=
+ Agreement. Ernie The Title Guy | 261 NE 1 ST | Miami, FL 33132 US Unsubscr=
+ibe | Update Profile | Constant Contact Data Notice
+------=_Part_239054804_2019561815.1787005620290
+Content-Type: text/html; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML>
+<html lang=3D"en-US"> <head> <title>Email from Ernie The Title Guy</title> =
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dutf-8"> <=
+meta name=3D"viewport" content=3D"width=3Ddevice-width, initial-scale=3D1, =
+maximum-scale=3D1">   <style type=3D"text/css" data-premailer=3D"ignore">=
+=20
+/* The following 2 styles are for handling signup landing pages  /* Set the=
+ default value for the targeted layout to display: none */ .layout--email_s=
+ignup_fineprint { display: none; }  /* Display the targeted layout only if =
+the doc contains email_address input */ body:has(label[for=3D"email_address=
+"]) .layout--email_signup_fineprint { display: block; }
+@media only screen and (max-width:480px) { .footer-main-width { width: 100%=
+ !important; }  .footer-mobile-hidden { display: none !important; }  .foote=
+r-mobile-hidden { display: none !important; }  .footer-column { display: bl=
+ock !important; }  .footer-mobile-stack { display: block !important; }  .fo=
+oter-mobile-stack-padding { padding-top: 3px; } }=20
+/* IE: correctly scale images with w/h attbs */ img { -ms-interpolation-mod=
+e: bicubic; }=20
+.layout { min-width: 100%; }=20
+table { table-layout: fixed; } .shell_outer-row, .shell_panel-row { table-l=
+ayout: auto; }=20
+/* Gmail/Web viewport fix */ u + .body .shell_outer-row { width: 700px; }=
+=20
+/* LIST AND p STYLE OVERRIDES */ .text .text_content-cell p { margin: 0; pa=
+dding: 0; margin-bottom: 0; } .text .text_content-cell ul, .text .text_cont=
+ent-cell ol { padding: 0; margin: 0 0 0 40px; } .text .text_content-cell li=
+ { padding: 0; margin: 0; /* line-height: 1.2; Remove after testing */ } /*=
+ Text Link Style Reset */ a { text-decoration: underline; } /* iOS: Autolin=
+k styles inherited */ a[x-apple-data-detectors] { text-decoration: underlin=
+e !important; font-size: inherit !important; font-family: inherit !importan=
+t; font-weight: inherit !important; line-height: inherit !important; color:=
+ inherit !important; } /* FF/Chrome: Smooth font rendering */ .text .text_c=
+ontent-cell { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing:=
+ grayscale; }
+</style> <!--[if gte mso 9]> <style id=3D"ol-styles">=20
+/* OUTLOOK-SPECIFIC STYLES */ li { text-indent: -1em; padding: 0; margin: 0=
+; /* line-height: 1.2; Remove after testing */ } ul, ol { padding: 0 0 0 40=
+px; } p { margin: 0; padding: 0; margin-bottom: 0; }=20
+</style> <![endif]-->  <style>@media only screen and (max-width:480px) {
+.button_content-cell {
+padding-top: 10px !important; padding-right: 20px !important; padding-botto=
+m: 10px !important; padding-left: 20px !important;
+}
+.button_border-row .button_content-cell {
+padding-top: 10px !important; padding-right: 20px !important; padding-botto=
+m: 10px !important; padding-left: 20px !important;
+}
+.column .content-padding-horizontal {
+padding-left: 20px !important; padding-right: 20px !important;
+}
+.layout .column .content-padding-horizontal .content-padding-horizontal {
+padding-left: 0px !important; padding-right: 0px !important;
+}
+.layout .column .content-padding-horizontal .block-wrapper_border-row .cont=
+ent-padding-horizontal {
+padding-left: 20px !important; padding-right: 20px !important;
+}
+.dataTable {
+overflow: auto !important;
+}
+.dataTable .dataTable_content {
+width: auto !important;
+}
+.icons_container {
+text-align: center !important;
+}
+.image--mobile-center img {
+float: none !important;
+}
+.image--mobile-full-width img.image_content {
+width: 100% !important; max-width: 100% !important;
+}
+.image--mobile-full-width .image_container-caption {
+width: 100% !important; max-width: 100% !important;
+}
+.image.image--float-left {
+float: none !important;
+}
+.image--float-left.image--mobile-center .image_container-caption {
+display: inline-block !important;
+}
+.image--float-left.image--mobile-center .image_container {
+text-align: center !important;
+}
+.image.image--float-right {
+float: none !important;
+}
+.image--float-right.image--mobile-center .image_container-caption {
+display: inline-block !important;
+}
+.image--float-right.image--mobile-center .image_container {
+text-align: center !important;
+}
+.layout-margin .layout-margin_cell {
+padding: 0px 20px !important;
+}
+.layout-margin--uniform .layout-margin_cell {
+padding: 20px 20px !important;
+}
+.scale {
+width: 100% !important;
+}
+.stack {
+display: block !important; box-sizing: border-box;
+}
+.hide {
+display: none !important;
+}
+u + .body .shell_outer-row {
+width: 100% !important;
+}
+.socialFollow_container {
+text-align: center !important;
+}
+.text .text_content-cell {
+font-size: 16px !important;
+}
+.text .text_content-cell h1 {
+font-size: 24px !important;
+}
+.text .text_content-cell h2 {
+font-size: 20px !important;
+}
+.text .text_content-cell h3 {
+font-size: 20px !important;
+}
+.text--sectionHeading .text_content-cell {
+font-size: 24px !important;
+}
+.text--heading .text_content-cell {
+font-size: 24px !important;
+}
+.text--feature .text_content-cell h2 {
+font-size: 20px !important;
+}
+.text--articleHeading .text_content-cell {
+font-size: 20px !important;
+}
+.text--article .text_content-cell h3 {
+font-size: 20px !important;
+}
+.text--featureHeading .text_content-cell {
+font-size: 20px !important;
+}
+.text--feature .text_content-cell h3 {
+font-size: 20px !important;
+}
+.text--dataTable .text_content-cell .dataTable .dataTable_content-cell {
+font-size: 12px !important;
+}
+.text--dataTable .text_content-cell .dataTable th.dataTable_content-cell {
+font-size: px !important;
+}
+}
+</style>
+</head> <body class=3D"body template template--en-US" data-template-version=
+=3D"1.45.7" data-canonical-name=3D"CPE-PT17831" lang=3D"en-US" align=3D"cen=
+ter" style=3D"-ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; m=
+in-width: 100%; width: 100%; margin: 0px; padding: 0px;"> <div id=3D"prehea=
+der" style=3D"color: transparent; display: none; font-size: 1px; line-heigh=
+t: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden;"><sp=
+an data-entity-ref=3D"preheader">Two units, rental + flip potential, plus a=
+ new $279K Sunrise deal and 3 more South Florida opportunities.</span></div=
+> <div id=3D"tracking-image" style=3D"color: transparent; display: none; fo=
+nt-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0=
+; overflow: hidden;"><img src=3D"https://5kdxmsvab.cc.rs6.net/on.jsp?ca=3D8=
+8ac846a-1b9d-4d50-8449-e3e05a79b941&a=3D1122677525854&c=3Dff580dd4-5265-11e=
+e-9e9e-fa163ec0164a&ch=3Dff688d76-5265-11ee-9e9e-fa163ec0164a" / alt=3D""><=
+/div> <div class=3D"shell" lang=3D"en-US" dir=3D"ltr" style=3D"background-c=
+olor: #474747;">  <table class=3D"shell_panel-row" width=3D"100%" border=3D=
+"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"background-color: #474747;=
+" bgcolor=3D"#474747"> <tr class=3D""> <td class=3D"shell_panel-cell" style=
+=3D"" align=3D"center" valign=3D"top"> <table class=3D"shell_width-row scal=
+e" style=3D"width: 700px;" align=3D"center" border=3D"0" cellpadding=3D"0" =
+cellspacing=3D"0"> <tr> <td class=3D"shell_width-cell" style=3D"padding: 15=
+px 10px;" align=3D"center" valign=3D"top"> <table class=3D"shell_content-ro=
+w" width=3D"100%" align=3D"center" border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0"> <tr> <td class=3D"shell_content-cell" style=3D"background-color: =
+#FFFFFF; padding: 0; border: 0px solid #3E3E3E;" align=3D"center" valign=3D=
+"top" bgcolor=3D"#FFFFFF"> <table class=3D"layout layout--1-column" style=
+=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0" cel=
+lspacing=3D"0"> <tr> <td class=3D"column column--1 scale stack" style=3D"wi=
+dth: 100%;" align=3D"center" valign=3D"top"> <table class=3D"image image--p=
+adding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0"> <tr> <td class=3D"image_container content-padding-horizontal" style=
+=3D"padding: 10px 40px;" align=3D"center" valign=3D"top"> <table class=3D"i=
+mage_container-caption text" border=3D"0" cellpadding=3D"0" cellspacing=3D"=
+0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell" sty=
+le=3D"text-align: -webkit-center; font-family: Arial,Verdana,Helvetica,sans=
+-serif; color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; =
+word-wrap: break-word; padding: 0px;" align=3D"center"> <img data-image-con=
+tent class=3D"image_content" style=3D"display: block; height: auto; max-wid=
+th: 100%;" width=3D"600" src=3D"https://files.constantcontact.com/e5d8bc465=
+01/a708afb0-182c-481a-afd7-a254988fd63e.png?rdr=3Dtrue" alt=3D"" align=3D"c=
+enter">  </td> </tr> </table> </td> </tr> </table>  </td> </tr> </table> <t=
+able class=3D"layout layout--1-column" style=3D"table-layout: fixed;" width=
+=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=
+=3D"column column--1 scale stack" style=3D"width: 100%;" align=3D"center" v=
+align=3D"top"> <table class=3D"text text--padding-vertical" width=3D"100%" =
+border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fix=
+ed;"> <tr> <td class=3D"text_content-cell content-padding-horizontal" style=
+=3D"text-align: center; font-family: Arial,Verdana,Helvetica,sans-serif; co=
+lor: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wrap:=
+ break-word; padding: 10px 40px;" align=3D"center" valign=3D"top">
+<p style=3D"margin: 0;"><span style=3D"font-style: italic;">HomeSellers Rea=
+l Estate Group</span></p>
+<p style=3D"margin: 0;"><span style=3D"font-style: italic;">Licensed Florid=
+a Brokerage</span></p>
+<h1 style=3D"font-family: Tahoma,Geneva,sans-serif; color: #3E3E3E; font-si=
+ze: 24px; font-weight: bold; margin: 0;"><span style=3D"font-family: Arial,=
+ Verdana, Helvetica, sans-serif; color: rgb(0, 0, 0);">Investor Wholesale &=
+amp; Traditional Brokerage</span></h1>
+</td> </tr> </table>  </td> </tr> </table> <table class=3D"layout layout--1=
+-column" style=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"column column--1 scale stac=
+k" style=3D"width: 100%;" align=3D"center" valign=3D"top"> <table class=3D"=
+text text--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" =
+cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_co=
+ntent-cell content-padding-horizontal" style=3D"text-align: left; font-fami=
+ly: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; li=
+ne-height: 1.2; display: block; word-wrap: break-word; padding: 10px 40px;"=
+ align=3D"left" valign=3D"top">
+<p style=3D"margin: 0;"><span style=3D"font-weight: bold; color: rgb(0, 0, =
+0);">About Our Inventory:</span></p>
+<p style=3D"margin: 0;"><span style=3D"color: rgb(0, 0, 0);">The investment=
+ properties we advertise are either:</span></p>
+<p style=3D"margin: 0;"><span style=3D"color: rgb(0, 0, 0);">&#x2022; Direc=
+tly owned by our group</span></p>
+<p style=3D"margin: 0;"><span style=3D"color: rgb(0, 0, 0);">&#x2022; Contr=
+actually controlled by our group</span></p>
+<p style=3D"margin: 0;"><span style=3D"color: rgb(0, 0, 0);">&#x2022; Or of=
+ficially listed through our brokerage</span></p>
+<p style=3D"margin: 0;"><span style=3D"font-style: italic; color: rgb(0, 0,=
+ 0);">We are a licensed brokerage and always welcome co-broke opportunities=
+ with agents and wholesalers.</span></p>
+</td> </tr> </table>  </td> </tr> </table> <table class=3D"layout layout--1=
+-column" style=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"column column--1 scale stac=
+k" style=3D"width: 100%;" align=3D"center" valign=3D"top"> <table class=3D"=
+text text--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" =
+cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_co=
+ntent-cell content-padding-horizontal" style=3D"text-align: left; font-fami=
+ly: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; li=
+ne-height: 1.2; display: block; word-wrap: break-word; padding: 10px 40px;"=
+ align=3D"left" valign=3D"top"><p style=3D"text-align: center; margin: 0;" =
+align=3D"center"><span style=3D"font-weight: bold; font-size: 24px; color: =
+rgb(0, 0, 0); text-decoration: underline;">CALL OR TEXT&#xa0;</span><span s=
+tyle=3D"font-size: 24px; color: rgb(0, 0, 0); text-decoration: underline;">=
+(</span><span style=3D"font-weight: bold; font-size: 24px; color: rgb(0, 0,=
+ 0); text-decoration: underline;">786) 250-2361&#x202c;</span></p></td> </t=
+r> </table>  </td> </tr> </table> <table class=3D"layout layout--1-column" =
+style=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0=
+" cellspacing=3D"0"> <tr> <td class=3D"column column--1 scale stack" style=
+=3D"width: 100%;" align=3D"center" valign=3D"top">
+<table class=3D"divider" width=3D"100%" cellpadding=3D"0" cellspacing=3D"0"=
+ border=3D"0"> <tr> <td class=3D"divider_container content-padding-horizont=
+al" style=3D"padding: 10px 40px;" width=3D"100%" align=3D"center" valign=3D=
+"top"> <table class=3D"divider_content-row" style=3D"height: 1px; width: 10=
+0%;" cellpadding=3D"0" cellspacing=3D"0" border=3D"0"> <tr> <td class=3D"di=
+vider_content-cell" style=3D"height: 1px; line-height: 1px; padding-bottom:=
+ 0px; background-color: #000000; border-bottom-width: 0px;" height=3D"1" al=
+ign=3D"center" bgcolor=3D"#000000"> <img alt=3D"" width=3D"5" height=3D"1" =
+border=3D"0" hspace=3D"0" vspace=3D"0" src=3D"https://imgssl.constantcontac=
+t.com/letters/images/1101116784221/S.gif" style=3D"display: block; height: =
+1px; width: 5px;"> </td> </tr> </table> </td> </tr> </table> </td> </tr> </=
+table> <table class=3D"layout layout--1-column" style=3D"table-layout: fixe=
+d;" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <=
+td class=3D"column column--1 scale stack" style=3D"width: 100%;" align=3D"c=
+enter" valign=3D"top"> <table class=3D"text text--padding-vertical" width=
+=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-l=
+ayout: fixed;"> <tr> <td class=3D"text_content-cell content-padding-horizon=
+tal" style=3D"text-align: left; background-color: #000000; font-family: Ari=
+al,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; line-heig=
+ht: 1.2; display: block; word-wrap: break-word; padding: 10px 40px;" align=
+=3D"left" valign=3D"top" bgcolor=3D"#000000">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 17px; color: rgb(242, 235, 221);">Now Hiring=
+</span><span style=3D"font-size: 17px; color: rgb(242, 235, 221);"> </span>=
+<span style=3D"font-size: 17px; color: rgb(242, 235, 221); font-weight: bol=
+d;">&#x2014; Traditional, Commercial &amp; Investment Real Estate</span></p=
+>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; color: rgb(242, 235, 221);">We&#x2019;re building a team =
+that understands all sides of the business.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; color: rgb(242, 235, 221);">&#x2022; 100% Commission for =
+Licensed Realtors</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; color: rgb(242, 235, 221);">&#x2022; Residential &amp; Co=
+mmercial Listings</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; color: rgb(242, 235, 221);">&#x2022; Investment &amp; Who=
+lesale Deal Flow</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; color: rgb(242, 235, 221);">&#x2022; In-House Buyers, Lea=
+ds &amp; Support</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; color: rgb(242, 235, 221);">&#x2022; No License? Learn Ac=
+quisitions &amp; Wholesaling</span></p>
+</td> </tr> </table>  </td> </tr> </table> <table class=3D"layout layout--1=
+-column" style=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"column column--1 scale stac=
+k" style=3D"width: 100%;" align=3D"center" valign=3D"top">  <table class=3D=
+"button button--padding-vertical" width=3D"100%" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed; word-break: break-wo=
+rd;"> <tr> <td class=3D"button_container content-padding-horizontal" style=
+=3D"padding: 10px 40px;" align=3D"center"> <table class=3D"button_content-r=
+ow" style=3D"" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td c=
+lass=3D"button_content-cell button_link" style=3D"font-size: 22px; width: i=
+nherit; border-radius: 2px; border-spacing: 0; background-color: #000000; m=
+ax-width: 100%; color: #FFFFFF; font-family: Arial,Verdana,Helvetica,sans-s=
+erif; word-wrap: break-word; font-weight: bold; text-decoration: none; padd=
+ing: 10px 15px; border-style: none;" align=3D"center" bgcolor=3D"#000000"> =
+<a class=3D"button_link" href=3D"https://5kdxmsvab.cc.rs6.net/tn.jsp?f=3D00=
+1hUOLWB7ewrSa-gLxJlpGjrH7UnWyPlJJJEcm3NrrVdGfZDyxQB6Ef6HLv4WxUP4oF-rAqmOcZA=
+xo_p2QRMP-Qpo4tOzKBMzCsk0V0FK_1IoEapwoAqnNjhH3Lr_MV-sidnS_g4W6wduMnQAXmJs8Z=
+8lL-7yLVVpiiUBQsSCW5TY=3D&c=3Dyu5dwSlAbGu6FB4E1AcbYkrs6tVKDl7e-uBaB4xKTDG8L=
+xg86zZ2rQ=3D=3D&ch=3Dfosd4qynLytRg8IlzuqTFraAoRbSka6siX78ITNxD1Yu-YXjyWJ3lQ=
+=3D=3D" target=3D"_blank" data-trackable=3D"true" style=3D"font-size: 22px;=
+ color: #FFFFFF; font-family: Arial,Verdana,Helvetica,sans-serif; word-wrap=
+: break-word; font-weight: bold; text-decoration: none;">Visit our Website<=
+/a> </td> </tr> </table> </td> </tr> </table>     <table class=3D"image ima=
+ge--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspa=
+cing=3D"0"> <tr> <td class=3D"image_container content-padding-horizontal" s=
+tyle=3D"padding: 10px 40px;" align=3D"center" valign=3D"top"> <table class=
+=3D"image_container-caption text" border=3D"0" cellpadding=3D"0" cellspacin=
+g=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell=
+" style=3D"text-align: -webkit-center; font-family: Arial,Verdana,Helvetica=
+,sans-serif; color: #3E3E3E; font-size: 14px; line-height: 1.2; display: bl=
+ock; word-wrap: break-word; padding: 0px;" align=3D"center"> <img data-imag=
+e-content class=3D"image_content" style=3D"display: block; height: auto; ma=
+x-width: 100%;" width=3D"600" src=3D"https://files.constantcontact.com/e5d8=
+bc46501/ba60faf6-4da7-4505-a7f3-be7be58f0dd6.png?rdr=3Dtrue" alt=3D"" align=
+=3D"center">  </td> </tr> </table> </td> </tr> </table>   <table class=3D"t=
+ext text--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" c=
+ellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_con=
+tent-cell content-padding-horizontal" style=3D"text-align: left; font-famil=
+y: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; lin=
+e-height: 1.2; display: block; word-wrap: break-word; padding: 10px 40px;" =
+align=3D"left" valign=3D"top"><h1 style=3D"text-align: center; font-family:=
+ Tahoma,Geneva,sans-serif; color: #3E3E3E; font-size: 24px; font-weight: bo=
+ld; margin: 0;" align=3D"center"><span style=3D"font-family: Arial, Verdana=
+, Helvetica, sans-serif; color: rgb(0, 0, 0);">2512 Arthur St HOLLYWOOD, FL=
+ 33020</span></h1></td> </tr> </table>   <table class=3D"image image--paddi=
+ng-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0=
+"> <tr> <td class=3D"image_container content-padding-horizontal" style=3D"p=
+adding: 10px 40px;" align=3D"center" valign=3D"top"> <table class=3D"image_=
+container-caption text" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" st=
+yle=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell" style=3D=
+"text-align: -webkit-center; font-family: Arial,Verdana,Helvetica,sans-seri=
+f; color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-=
+wrap: break-word; padding: 0px;" align=3D"center"> <img data-image-content =
+class=3D"image_content" style=3D"display: block; height: auto; max-width: 1=
+00%;" width=3D"600" src=3D"https://files.constantcontact.com/e5d8bc46501/82=
+fb2cae-fab8-4e2a-aace-72cb758655d2.png?rdr=3Dtrue" alt=3D"" align=3D"center=
+">  </td> </tr> </table> </td> </tr> </table>   <table class=3D"text text--=
+padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell =
+content-padding-horizontal" style=3D"text-align: left; font-family: Arial,V=
+erdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; line-height: =
+1.2; display: block; word-wrap: break-word; padding: 10px 40px;" align=3D"l=
+eft" valign=3D"top">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34);">Asking Price:=
+ </span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34);">&#xfeff;$374<=
+/span><span style=3D"font-weight: bold; font-size: 18px;">,999</span> <span=
+ style=3D"font-weight: bold; font-size: 18px; color: rgb(233, 76, 58);">NEW=
+ DEAL!!!</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Escrow:</span></=
+p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">$10,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">ARV Value:</span=
+></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px;">$550,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">&#xfeff;</span><=
+/p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Comps:</span></p=
+>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"background-color: rgb(255, 255, 255); font-size: 18px; color: rgb(0, 0, 0)=
+; font-family: Arial, Verdana, Helvetica, sans-serif;">1212 n 22 ave----- s=
+old for $599,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"background-color: rgb(255, 255, 255); font-size: 18px; color: rgb(0, 0, 0)=
+; font-family: Arial, Verdana, Helvetica, sans-serif;">2515 Garfield St----=
+ sold for $550,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Notes:</span></p=
+>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"margin: 0;"><span style=3D"font-size: 18px; color: rgb(0, 0, 0)=
+;">HOLLYWOOD DUPLEX VALUE-ADD OPPORTUNITY | 2 UNITS | STRONG RENTAL + FLIP =
+POTENTIAL</span></p>
+<p style=3D"margin: 0;"><br></p>
+<p style=3D"margin: 0;"><span style=3D"font-size: 18px; color: rgb(0, 0, 0)=
+;">Investor opportunity in Hollywood, FL featuring a duplex configuration w=
+ith two 1-bedroom / 1-bath units. This property offers multiple exit strate=
+gies &#x2014; renovate and hold for rental income, reposition for stronger =
+rents, or improve and resell.</span></p>
+<p style=3D"margin: 0;"><br></p>
+<p style=3D"margin: 0;"><span style=3D"font-size: 18px; color: rgb(0, 0, 0)=
+;">The property already features two electrical panels, separate window A/C=
+ systems, two kitchens, and separate living spaces, giving investors a soli=
+d foundation for a value-add renovation. The kitchens were reportedly renov=
+ated in 2019.</span></p>
+<p style=3D"margin: 0;"><br></p>
+<p style=3D"margin: 0;"><span style=3D"font-size: 18px; color: rgb(0, 0, 0)=
+;">Located on a 6,480 SF lot with approximately 1,000 SF of living area, th=
+is is a straightforward Hollywood investment with upside for an investor wh=
+o can renovate efficiently.</span></p>
+<p style=3D"margin: 0;"><br></p>
+<p style=3D"margin: 0;"><span style=3D"font-size: 18px; color: rgb(0, 0, 0)=
+;">2 Units | 1 Bed / 1 Bath Each | $550K ARV | Value-Add Duplex | Rental or=
+ Resale Exit</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Showing Instruct=
+ions:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">By Appointment.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">&#xfeff;24-hour Notice.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"color: rgb(0, 0, 0);">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Bed</span><span =
+style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 2</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Bath</span><span=
+ style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 2</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Liv Sqft</span><=
+span style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 1,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Lot Sqft</span><=
+span style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 6,480</span></p>
+</td> </tr> </table>    <table class=3D"button button--padding-vertical" wi=
+dth=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed; word-break: break-word;"> <tr> <td class=3D"button_contain=
+er content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"cente=
+r"> <table class=3D"button_content-row" style=3D"" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0"> <tr> <td class=3D"button_content-cell button_link=
+" style=3D"width: inherit; border-radius: 2px; border-spacing: 0; backgroun=
+d-color: #000000; max-width: 100%; color: #FFFFFF; font-family: Arial,Verda=
+na,Helvetica,sans-serif; font-size: 16px; word-wrap: break-word; font-weigh=
+t: bold; text-decoration: none; padding: 10px 15px; border-style: none;" al=
+ign=3D"center" bgcolor=3D"#000000"> <a class=3D"button_link" href=3D"https:=
+//5kdxmsvab.cc.rs6.net/tn.jsp?f=3D001hUOLWB7ewrSa-gLxJlpGjrH7UnWyPlJJJEcm3N=
+rrVdGfZDyxQB6Ef-aA9-12HXpmJhVEtuQCBZlMsOMmRVrW2hGrv_pBbm638FofcZ5S4tvdJXkgd=
+DBKx9L0aLwFJyptWzkYIYMXWhBIuELH69a5ENrzsXRR8bLgJicBSbwYJa-wc9W0knZPsgI9GAPz=
+J8aZcW6YwXgXZ-pHRhXJnwTVDIa9eVQddw3ZjKHyK8psvH0O5iUU019_0A=3D=3D&c=3Dyu5dwS=
+lAbGu6FB4E1AcbYkrs6tVKDl7e-uBaB4xKTDG8Lxg86zZ2rQ=3D=3D&ch=3Dfosd4qynLytRg8I=
+lzuqTFraAoRbSka6siX78ITNxD1Yu-YXjyWJ3lQ=3D=3D" target=3D"_blank" data-track=
+able=3D"true" style=3D"color: #FFFFFF; font-family: Arial,Verdana,Helvetica=
+,sans-serif; font-size: 16px; word-wrap: break-word; font-weight: bold; tex=
+t-decoration: none;">More Pictures</a> </td> </tr> </table> </td> </tr> </t=
+able>     <table class=3D"image image--padding-vertical" width=3D"100%" bor=
+der=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_cont=
+ainer content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"ce=
+nter" valign=3D"top"> <table class=3D"image_container-caption text" border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> =
+<tr> <td class=3D"text_content-cell" style=3D"text-align: -webkit-center; f=
+ont-family: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: =
+14px; line-height: 1.2; display: block; word-wrap: break-word; padding: 0px=
+;" align=3D"center"> <img data-image-content class=3D"image_content" style=
+=3D"display: block; height: auto; max-width: 100%;" width=3D"600" src=3D"ht=
+tps://files.constantcontact.com/e5d8bc46501/ba60faf6-4da7-4505-a7f3-be7be58=
+f0dd6.png?rdr=3Dtrue" alt=3D"" align=3D"center">  </td> </tr> </table> </td=
+> </tr> </table>   <table class=3D"text text--padding-vertical" width=3D"10=
+0%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout:=
+ fixed;"> <tr> <td class=3D"text_content-cell content-padding-horizontal" s=
+tyle=3D"text-align: left; font-family: Arial,Verdana,Helvetica,sans-serif; =
+color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wra=
+p: break-word; padding: 10px 40px;" align=3D"left" valign=3D"top"><h1 style=
+=3D"text-align: center; font-family: Tahoma,Geneva,sans-serif; color: #3E3E=
+3E; font-size: 24px; font-weight: bold; margin: 0;" align=3D"center"><span =
+style=3D"font-family: Arial, Verdana, Helvetica, sans-serif; color: rgb(0, =
+0, 0);">8016 NW 27th Ct, SUNRISE, FL 33322</span></h1></td> </tr> </table> =
+  <table class=3D"image image--padding-vertical" width=3D"100%" border=3D"0=
+" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_container co=
+ntent-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"center" va=
+lign=3D"top"> <table class=3D"image_container-caption text" border=3D"0" ce=
+llpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td =
+class=3D"text_content-cell" style=3D"text-align: -webkit-center; font-famil=
+y: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; lin=
+e-height: 1.2; display: block; word-wrap: break-word; padding: 0px;" align=
+=3D"center"> <img data-image-content class=3D"image_content" style=3D"displ=
+ay: block; height: auto; max-width: 100%;" width=3D"600" src=3D"https://fil=
+es.constantcontact.com/e5d8bc46501/6b443e33-f21d-4aa5-8e70-898209482e73.png=
+?rdr=3Dtrue" alt=3D"" align=3D"center">  </td> </tr> </table> </td> </tr> <=
+/table>   <table class=3D"text text--padding-vertical" width=3D"100%" borde=
+r=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;">=
+ <tr> <td class=3D"text_content-cell content-padding-horizontal" style=3D"t=
+ext-align: left; font-family: Arial,Verdana,Helvetica,sans-serif; color: #3=
+E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wrap: break-=
+word; padding: 10px 40px;" align=3D"left" valign=3D"top">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34);">Asking Price:=
+ </span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34);">&#xfeff;$</sp=
+an><span style=3D"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);"=
+>279,999</span><span style=3D"color: rgb(0, 0, 0);"> </span><span style=3D"=
+font-weight: bold; font-size: 18px; color: rgb(233, 76, 58);">NEW DEAL!!!</=
+span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Escrow:</span></=
+p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">$10,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">ARV Value:</span=
+></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">$430,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">&#xfeff;Comps:</=
+span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"background-color: rgb(255, 255, 255); font-size: 18px; color: rgb(0, 0, 0)=
+; font-family: Arial, Verdana, Helvetica, sans-serif;">7600 S Aragon Blvd--=
+-- Sold for $470,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"background-color: rgb(255, 255, 255); font-size: 18px; color: rgb(0, 0, 0)=
+; font-family: Arial, Verdana, Helvetica, sans-serif;">2491 Aragon Blvd ---=
+-- Sold for $450,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Notes:</span></p=
+>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"background-color: rgb(255, 255, 255); font-size: 18px; color: rgb(0, 0, 0)=
+; font-family: Arial, Verdana, Helvetica, sans-serif;">STRAIGHTFORWARD 3-BE=
+DROOM FIX &amp; FLIP TOWNHOUSE | 1,600+ SQ FT &#x2013; STRONG ARV UPSIDE</s=
+pan></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Showing Instruct=
+ions:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">By Appointment.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">&#xfeff;24-hour Notice.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"color: rgb(0, 0, 0);">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Bed</span><span =
+style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 3</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Bath</span><span=
+ style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 3</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Liv Sqft</span><=
+span style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 1,636</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Lot Sqft</span><=
+span style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 1,971</span></p>
+</td> </tr> </table>    <table class=3D"button button--padding-vertical" wi=
+dth=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed; word-break: break-word;"> <tr> <td class=3D"button_contain=
+er content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"cente=
+r"> <table class=3D"button_content-row" style=3D"" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0"> <tr> <td class=3D"button_content-cell button_link=
+" style=3D"width: inherit; border-radius: 2px; border-spacing: 0; backgroun=
+d-color: #000000; max-width: 100%; color: #FFFFFF; font-family: Arial,Verda=
+na,Helvetica,sans-serif; font-size: 16px; word-wrap: break-word; font-weigh=
+t: bold; text-decoration: none; padding: 10px 15px; border-style: none;" al=
+ign=3D"center" bgcolor=3D"#000000"> <a class=3D"button_link" href=3D"https:=
+//5kdxmsvab.cc.rs6.net/tn.jsp?f=3D001hUOLWB7ewrSa-gLxJlpGjrH7UnWyPlJJJEcm3N=
+rrVdGfZDyxQB6Ef1dRd-P4kI9JtkotyY7VTtw4mWqlxPkt0Kt8WA6BQwT_1mNlYEj7xow9yp6kd=
+2F2jIUvD2IogjQa4qKSi1Tb2wUvURrYhp1f0I3ASHaSWQdiDEflebgdJ7uBssS7_NmM4AENle6z=
+LpIxJKDbNfh7IMvMCnEKp9RFVWwczziSD8gGiTUUIlmNoouJ-vLgrRTkLg=3D=3D&c=3Dyu5dwS=
+lAbGu6FB4E1AcbYkrs6tVKDl7e-uBaB4xKTDG8Lxg86zZ2rQ=3D=3D&ch=3Dfosd4qynLytRg8I=
+lzuqTFraAoRbSka6siX78ITNxD1Yu-YXjyWJ3lQ=3D=3D" target=3D"_blank" data-track=
+able=3D"true" style=3D"color: #FFFFFF; font-family: Arial,Verdana,Helvetica=
+,sans-serif; font-size: 16px; word-wrap: break-word; font-weight: bold; tex=
+t-decoration: none;">More Pictures</a> </td> </tr> </table> </td> </tr> </t=
+able>     <table class=3D"image image--padding-vertical" width=3D"100%" bor=
+der=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_cont=
+ainer content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"ce=
+nter" valign=3D"top"> <table class=3D"image_container-caption text" border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> =
+<tr> <td class=3D"text_content-cell" style=3D"text-align: -webkit-center; f=
+ont-family: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: =
+14px; line-height: 1.2; display: block; word-wrap: break-word; padding: 0px=
+;" align=3D"center"> <img data-image-content class=3D"image_content" style=
+=3D"display: block; height: auto; max-width: 100%;" width=3D"600" src=3D"ht=
+tps://files.constantcontact.com/e5d8bc46501/ba60faf6-4da7-4505-a7f3-be7be58=
+f0dd6.png?rdr=3Dtrue" alt=3D"" align=3D"center">  </td> </tr> </table> </td=
+> </tr> </table>   <table class=3D"text text--padding-vertical" width=3D"10=
+0%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout:=
+ fixed;"> <tr> <td class=3D"text_content-cell content-padding-horizontal" s=
+tyle=3D"text-align: left; font-family: Arial,Verdana,Helvetica,sans-serif; =
+color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wra=
+p: break-word; padding: 10px 40px;" align=3D"left" valign=3D"top"><h1 style=
+=3D"text-align: center; font-family: Tahoma,Geneva,sans-serif; color: #3E3E=
+3E; font-size: 24px; font-weight: bold; margin: 0;" align=3D"center"><span =
+style=3D"font-family: Arial, Verdana, Helvetica, sans-serif; color: rgb(0, =
+0, 0);">440 NW 133rd St, NORTH MIAMI, FL 33168</span></h1></td> </tr> </tab=
+le>   <table class=3D"image image--padding-vertical" width=3D"100%" border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_contain=
+er content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"cente=
+r" valign=3D"top"> <table class=3D"image_container-caption text" border=3D"=
+0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr>=
+ <td class=3D"text_content-cell" style=3D"text-align: -webkit-center; font-=
+family: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px=
+; line-height: 1.2; display: block; word-wrap: break-word; padding: 0px;" a=
+lign=3D"center"> <img data-image-content class=3D"image_content" style=3D"d=
+isplay: block; height: auto; max-width: 100%;" width=3D"600" src=3D"https:/=
+/files.constantcontact.com/e5d8bc46501/b12a2b01-b409-4ea2-b523-da2fe54124b6=
+.png?rdr=3Dtrue" alt=3D"" align=3D"center">  </td> </tr> </table> </td> </t=
+r> </table>   <table class=3D"text text--padding-vertical" width=3D"100%" b=
+order=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixe=
+d;"> <tr> <td class=3D"text_content-cell content-padding-horizontal" style=
+=3D"text-align: left; font-family: Arial,Verdana,Helvetica,sans-serif; colo=
+r: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wrap: b=
+reak-word; padding: 10px 40px;" align=3D"left" valign=3D"top">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34);">Asking Price:=
+ </span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34);">&#xfeff;$</sp=
+an><span style=3D"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);"=
+>309,999</span><span style=3D"color: rgb(0, 0, 0);"> </span><span style=3D"=
+font-weight: bold; font-size: 18px; color: rgb(233, 76, 58);">REDUCTION!!!<=
+/span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Escrow:</span></=
+p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">$10,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">ARV Value:</span=
+></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">$455,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">&#xfeff;Comps:</=
+span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(33, 35, 44); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">360 NW 136 ST---2/1-----SOLD FOR $460,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(33, 35, 44); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">575 NW 139 TERR----2/1----SOLD FOR $455,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(33, 35, 44); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">200 NW 134 ST----2/1 ----SOLD FOR $455,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Notes:</span></p=
+>
+<p style=3D"margin: 0;"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px;">STRAIGHTFORWARD 2/1 FIX &amp; FLIP | STRONG ARV COMPS &#=
+x2013; LARGE LOT UPSIDE</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Showing Instruct=
+ions:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">By Appointment.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">&#xfeff;24-hour Notice.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"color: rgb(0, 0, 0);">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Bed</span><span =
+style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 2</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Bath</span><span=
+ style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 1</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Liv Sqft</span><=
+span style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 895</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0);">Lot Sqft</span><=
+span style=3D"font-size: 18px; color: rgb(0, 0, 0);">: 7,920</span></p>
+</td> </tr> </table>    <table class=3D"button button--padding-vertical" wi=
+dth=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed; word-break: break-word;"> <tr> <td class=3D"button_contain=
+er content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"cente=
+r"> <table class=3D"button_content-row" style=3D"" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0"> <tr> <td class=3D"button_content-cell button_link=
+" style=3D"width: inherit; border-radius: 2px; border-spacing: 0; backgroun=
+d-color: #000000; max-width: 100%; color: #FFFFFF; font-family: Arial,Verda=
+na,Helvetica,sans-serif; font-size: 16px; word-wrap: break-word; font-weigh=
+t: bold; text-decoration: none; padding: 10px 15px; border-style: none;" al=
+ign=3D"center" bgcolor=3D"#000000"> <a class=3D"button_link" href=3D"https:=
+//5kdxmsvab.cc.rs6.net/tn.jsp?f=3D001hUOLWB7ewrSa-gLxJlpGjrH7UnWyPlJJJEcm3N=
+rrVdGfZDyxQB6Ef9G2xpULmSlAycuSPlmDYpTQsZxKzrvWEQ0uh-q-5z0lDa70FuIWjsaGtTtVQ=
+vwUwsWenYHp8kesd7Mw0ZkFsndGUFeeCES5ntBGFpPQa03z4f5n58KGmOW7qS3Ei63pZyU7T7-e=
+ETvxfEPNqV-BYprjeS3f8MAcTVl7kfoDqOrgem65whpmbT7UjRi4-ujfWA=3D=3D&c=3Dyu5dwS=
+lAbGu6FB4E1AcbYkrs6tVKDl7e-uBaB4xKTDG8Lxg86zZ2rQ=3D=3D&ch=3Dfosd4qynLytRg8I=
+lzuqTFraAoRbSka6siX78ITNxD1Yu-YXjyWJ3lQ=3D=3D" target=3D"_blank" data-track=
+able=3D"true" style=3D"color: #FFFFFF; font-family: Arial,Verdana,Helvetica=
+,sans-serif; font-size: 16px; word-wrap: break-word; font-weight: bold; tex=
+t-decoration: none;">More Pictures</a> </td> </tr> </table> </td> </tr> </t=
+able>     <table class=3D"image image--padding-vertical" width=3D"100%" bor=
+der=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_cont=
+ainer content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"ce=
+nter" valign=3D"top"> <table class=3D"image_container-caption text" border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> =
+<tr> <td class=3D"text_content-cell" style=3D"text-align: -webkit-center; f=
+ont-family: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: =
+14px; line-height: 1.2; display: block; word-wrap: break-word; padding: 0px=
+;" align=3D"center"> <img data-image-content class=3D"image_content" style=
+=3D"display: block; height: auto; max-width: 100%;" width=3D"600" src=3D"ht=
+tps://files.constantcontact.com/e5d8bc46501/ba60faf6-4da7-4505-a7f3-be7be58=
+f0dd6.png?rdr=3Dtrue" alt=3D"" align=3D"center">  </td> </tr> </table> </td=
+> </tr> </table>   <table class=3D"text text--padding-vertical" width=3D"10=
+0%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout:=
+ fixed;"> <tr> <td class=3D"text_content-cell content-padding-horizontal" s=
+tyle=3D"text-align: left; font-family: Arial,Verdana,Helvetica,sans-serif; =
+color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wra=
+p: break-word; padding: 10px 40px;" align=3D"left" valign=3D"top"><p style=
+=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D"font-si=
+ze: 24px; font-weight: bold; color: rgb(0, 0, 0);">5347 Grand Banks Blvd, G=
+reenacres, FL 33463</span></p></td> </tr> </table>   <table class=3D"image =
+image--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cell=
+spacing=3D"0"> <tr> <td class=3D"image_container content-padding-horizontal=
+" style=3D"padding: 10px 40px;" align=3D"center" valign=3D"top"> <table cla=
+ss=3D"image_container-caption text" border=3D"0" cellpadding=3D"0" cellspac=
+ing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-ce=
+ll" style=3D"text-align: -webkit-center; font-family: Arial,Verdana,Helveti=
+ca,sans-serif; color: #3E3E3E; font-size: 14px; line-height: 1.2; display: =
+block; word-wrap: break-word; padding: 0px;" align=3D"center"> <img data-im=
+age-content class=3D"image_content" style=3D"display: block; height: auto; =
+max-width: 100%;" width=3D"600" src=3D"https://files.constantcontact.com/e5=
+d8bc46501/ffe1ffbb-cd04-4bba-8c1e-1e12317db3f5.png?rdr=3Dtrue" alt=3D"" ali=
+gn=3D"center">  </td> </tr> </table> </td> </tr> </table>   <table class=3D=
+"text text--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0"=
+ cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_c=
+ontent-cell content-padding-horizontal" style=3D"text-align: left; font-fam=
+ily: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; l=
+ine-height: 1.2; display: block; word-wrap: break-word; padding: 10px 40px;=
+" align=3D"left" valign=3D"top">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Asking Price:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"background-color: rgb(255, 255, 255); font-weight: bold; font-size: 18px; =
+color: rgb(13, 14, 18); font-family: Arial, Verdana, Helvetica, sans-serif;=
+">$589,000 </span><span style=3D"font-weight: bold; font-size: 18px; color:=
+ rgb(233, 76, 58); font-family: Arial, Verdana, Helvetica, sans-serif;">NEW=
+ DEAL!!!</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Escrow:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0); font-family: Arial, Verdana, Helveti=
+ca, sans-serif;">$10,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">ARV Value:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0); font-family: Arial, Verdana, Helveti=
+ca, sans-serif;">$700,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Notes:</span></p>
+<p style=3D"margin: 0;"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0);">5 BEDROOM POOL HOME | 2,900+ SQ FT =
+IN GATED COMMUNITY | STRONG FIX &amp; FLIP POTENTIAL | $700K+ ARV</span></p=
+>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Showing Instructions:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(0, 0, 0); font-family: Arial, Verdana, Helveti=
+ca, sans-serif;">By Appointment &#x2014; 24 Hours Notice</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Bed: 5</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Bath: 3</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Liv Sqft: </span><span style=3D"font-si=
+ze: 18px; color: rgb(0, 0, 0); font-family: Arial, Verdana, Helvetica, sans=
+-serif;">2,941</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(0, 0, 0); font-family: Aria=
+l, Verdana, Helvetica, sans-serif;">Lot Size: </span><span style=3D"font-si=
+ze: 18px; color: rgb(0, 0, 0); font-family: Arial, Verdana, Helvetica, sans=
+-serif;">8,126</span></p>
+</td> </tr> </table>    <table class=3D"button button--padding-vertical" wi=
+dth=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed; word-break: break-word;"> <tr> <td class=3D"button_contain=
+er content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"cente=
+r"> <table class=3D"button_content-row" style=3D"" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0"> <tr> <td class=3D"button_content-cell button_link=
+" style=3D"width: inherit; border-radius: 2px; border-spacing: 0; backgroun=
+d-color: #000000; max-width: 100%; color: #FFFFFF; font-family: Arial,Verda=
+na,Helvetica,sans-serif; font-size: 16px; word-wrap: break-word; font-weigh=
+t: bold; text-decoration: none; padding: 10px 15px; border-style: none;" al=
+ign=3D"center" bgcolor=3D"#000000"> <a class=3D"button_link" href=3D"https:=
+//5kdxmsvab.cc.rs6.net/tn.jsp?f=3D001hUOLWB7ewrSa-gLxJlpGjrH7UnWyPlJJJEcm3N=
+rrVdGfZDyxQB6Ef9d5vtDXhmx-238AhRM9xgC5cAckFnMO4xsGyDmM_5T_3eN-3px2B023ssiwm=
+tW73HGAwg-oBgnrYcr9u8NiphTWQkF0EI4KeIuxFKu6kXfHzaKMjR-ipBT9M_QWKI0DaXHYKx01=
+ek7MJ8jJjeg9oxjUea0nY3ExA8EFWoizj50-FfRhESmYHxukhmma2d9CtQ=3D=3D&c=3Dyu5dwS=
+lAbGu6FB4E1AcbYkrs6tVKDl7e-uBaB4xKTDG8Lxg86zZ2rQ=3D=3D&ch=3Dfosd4qynLytRg8I=
+lzuqTFraAoRbSka6siX78ITNxD1Yu-YXjyWJ3lQ=3D=3D" target=3D"_blank" data-track=
+able=3D"true" style=3D"color: #FFFFFF; font-family: Arial,Verdana,Helvetica=
+,sans-serif; font-size: 16px; word-wrap: break-word; font-weight: bold; tex=
+t-decoration: none;">More Pictures</a> </td> </tr> </table> </td> </tr> </t=
+able>    </td> </tr> </table> <table class=3D"layout layout--1-column" styl=
+e=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0" ce=
+llspacing=3D"0"> <tr> <td class=3D"column column--1 scale stack" style=3D"w=
+idth: 100%;" align=3D"center" valign=3D"top"> <table class=3D"image image--=
+padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0"> <tr> <td class=3D"image_container content-padding-horizontal" style=
+=3D"padding: 10px 40px;" align=3D"center" valign=3D"top"> <table class=3D"i=
+mage_container-caption text" border=3D"0" cellpadding=3D"0" cellspacing=3D"=
+0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell" sty=
+le=3D"text-align: -webkit-center; font-family: Arial,Verdana,Helvetica,sans=
+-serif; color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; =
+word-wrap: break-word; padding: 0px;" align=3D"center"> <img data-image-con=
+tent class=3D"image_content" style=3D"display: block; height: auto; max-wid=
+th: 100%;" width=3D"600" src=3D"https://files.constantcontact.com/e5d8bc465=
+01/ba60faf6-4da7-4505-a7f3-be7be58f0dd6.png?rdr=3Dtrue" alt=3D"" align=3D"c=
+enter">  </td> </tr> </table> </td> </tr> </table>   <table class=3D"text t=
+ext--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellsp=
+acing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-=
+cell content-padding-horizontal" style=3D"text-align: left; font-family: Ar=
+ial,Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; line-hei=
+ght: 1.2; display: block; word-wrap: break-word; padding: 10px 40px;" align=
+=3D"left" valign=3D"top"><p style=3D"text-align: center; margin: 0;" align=
+=3D"center"><span style=3D"font-weight: bold; font-size: 24px; color: rgb(3=
+4, 34, 34); font-family: Arial, Verdana, Helvetica, sans-serif;">1489 W 34t=
+h St,&#xa0;Riviera Beach,&#xa0;FL</span></p></td> </tr> </table>   <table c=
+lass=3D"image image--padding-vertical" width=3D"100%" border=3D"0" cellpadd=
+ing=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_container content-padd=
+ing-horizontal" style=3D"padding: 10px 40px;" align=3D"center" valign=3D"to=
+p"> <table class=3D"image_container-caption text" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"=
+text_content-cell" style=3D"text-align: -webkit-center; font-family: Arial,=
+Verdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; line-height:=
+ 1.2; display: block; word-wrap: break-word; padding: 0px;" align=3D"center=
+"> <img data-image-content class=3D"image_content" style=3D"display: block;=
+ height: auto; max-width: 100%;" width=3D"600" src=3D"https://files.constan=
+tcontact.com/e5d8bc46501/54f0e516-0a41-4de8-aa54-ae96015047e9.png?rdr=3Dtru=
+e" alt=3D"" align=3D"center">  </td> </tr> </table> </td> </tr> </table>   =
+<table class=3D"text text--padding-vertical" width=3D"100%" border=3D"0" ce=
+llpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td =
+class=3D"text_content-cell content-padding-horizontal" style=3D"text-align:=
+ left; font-family: Arial,Verdana,Helvetica,sans-serif; color: #3E3E3E; fon=
+t-size: 14px; line-height: 1.2; display: block; word-wrap: break-word; padd=
+ing: 10px 40px;" align=3D"left" valign=3D"top">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">Asking Price: $220,000&#xa0;</span><=
+span style=3D"font-weight: bold; font-size: 18px; color: rgb(233, 76, 58); =
+font-family: Arial, Verdana, Helvetica, sans-serif;">HOT DEAL!!!</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 14px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">Escrow:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">$10,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 14px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">ARV Value:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">$330,000</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 14px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">Notes:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">SFR | Tenant month-to-month | Cosmetic update =3D stron=
+g upside</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 14px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-weight: bold; font-size: 18px; color: rgb(34, 34, 34); font-family: A=
+rial, Verdana, Helvetica, sans-serif;">Showing Instructions:</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">By Appointment.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">&#xfeff;24hrs Notice.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 14px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">&#xa0;</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">Bed: 3</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">Bath: 1</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">Liv Sqft: 1,008</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 18px; color: rgb(34, 34, 34); font-family: Arial, Verdana, Helv=
+etica, sans-serif;">Lot Size: 5,482</span></p>
+</td> </tr> </table>    <table class=3D"button button--padding-vertical" wi=
+dth=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed; word-break: break-word;"> <tr> <td class=3D"button_contain=
+er content-padding-horizontal" style=3D"padding: 10px 40px;" align=3D"cente=
+r"> <table class=3D"button_content-row" style=3D"" border=3D"0" cellpadding=
+=3D"0" cellspacing=3D"0"> <tr> <td class=3D"button_content-cell button_link=
+" style=3D"width: inherit; border-radius: 2px; border-spacing: 0; backgroun=
+d-color: #000000; max-width: 100%; color: #FFFFFF; font-family: Arial,Verda=
+na,Helvetica,sans-serif; font-size: 16px; word-wrap: break-word; font-weigh=
+t: bold; text-decoration: none; padding: 10px 15px; border-style: none;" al=
+ign=3D"center" bgcolor=3D"#000000"> <a class=3D"button_link" href=3D"https:=
+//5kdxmsvab.cc.rs6.net/tn.jsp?f=3D001hUOLWB7ewrSa-gLxJlpGjrH7UnWyPlJJJEcm3N=
+rrVdGfZDyxQB6Efxb83Yy3GyoxK53W6LHq2oRH_cgRgatr59D25rGRy42EVTzwtER959jx02ZrD=
+qD6IiDHN5n7YSUcgTPIOpafnSbsnYAhUZWup42xs9VhTP0Gb0ssblyAUSfO7EvNZmr9Gvh5VpDd=
+hovjb2rVAXoPM7BjjEG9kHqpXow-vrsVuEzVNlXQwGbU7c6tX_Dkvc56lg=3D=3D&c=3Dyu5dwS=
+lAbGu6FB4E1AcbYkrs6tVKDl7e-uBaB4xKTDG8Lxg86zZ2rQ=3D=3D&ch=3Dfosd4qynLytRg8I=
+lzuqTFraAoRbSka6siX78ITNxD1Yu-YXjyWJ3lQ=3D=3D" target=3D"_blank" data-track=
+able=3D"true" style=3D"color: #FFFFFF; font-family: Arial,Verdana,Helvetica=
+,sans-serif; font-size: 16px; word-wrap: break-word; font-weight: bold; tex=
+t-decoration: none;">More Pictures</a> </td> </tr> </table> </td> </tr> </t=
+able>    </td> </tr> </table> <table class=3D"layout layout--1-column" styl=
+e=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0" ce=
+llspacing=3D"0"> <tr> <td class=3D"column column--1 scale stack" style=3D"w=
+idth: 100%;" align=3D"center" valign=3D"top"> <table class=3D"text text--pa=
+dding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=
+=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell =
+content-padding-horizontal" style=3D"text-align: left; font-family: Arial,V=
+erdana,Helvetica,sans-serif; color: #3E3E3E; font-size: 14px; line-height: =
+1.2; display: block; word-wrap: break-word; padding: 10px 40px;" align=3D"l=
+eft" valign=3D"top"><p style=3D"text-align: center; margin: 0;" align=3D"ce=
+nter"><span style=3D"font-weight: bold; font-size: 24px; color: rgb(0, 0, 0=
+); text-decoration: underline;">CALL OR TEXT&#xa0;</span><span style=3D"fon=
+t-size: 24px; color: rgb(0, 0, 0); text-decoration: underline;">(</span><sp=
+an style=3D"font-weight: bold; font-size: 24px; color: rgb(0, 0, 0); text-d=
+ecoration: underline;">786) 250-2361&#x202c;</span></p></td> </tr> </table>=
+  </td> </tr> </table> <table class=3D"layout layout--1-column" style=3D"ta=
+ble-layout: fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspaci=
+ng=3D"0"> <tr> <td class=3D"column column--1 scale stack" style=3D"width: 1=
+00%;" align=3D"center" valign=3D"top"> <table class=3D"image image--padding=
+-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0">=
+ <tr> <td class=3D"image_container content-padding-horizontal" style=3D"pad=
+ding: 10px 40px;" align=3D"center" valign=3D"top"> <table class=3D"image_co=
+ntainer-caption text" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" styl=
+e=3D"table-layout: fixed;"> <tr> <td class=3D"text_content-cell" style=3D"t=
+ext-align: -webkit-center; font-family: Arial,Verdana,Helvetica,sans-serif;=
+ color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wr=
+ap: break-word; padding: 0px;" align=3D"center"> <img data-image-content cl=
+ass=3D"image_content" style=3D"display: block; height: auto; max-width: 100=
+%;" width=3D"600" src=3D"https://files.constantcontact.com/e5d8bc46501/ba60=
+faf6-4da7-4505-a7f3-be7be58f0dd6.png?rdr=3Dtrue" alt=3D"" align=3D"center">=
+  </td> </tr> </table> </td> </tr> </table>  </td> </tr> </table> <table cl=
+ass=3D"layout layout--1-column" style=3D"table-layout: fixed;" width=3D"100=
+%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"colu=
+mn column--1 scale stack" style=3D"width: 100%;" align=3D"center" valign=3D=
+"top"> <table class=3D"text text--padding-vertical" width=3D"100%" border=
+=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"table-layout: fixed;"> =
+<tr> <td class=3D"text_content-cell content-padding-horizontal" style=3D"te=
+xt-align: left; font-family: Arial,Verdana,Helvetica,sans-serif; color: #3E=
+3E3E; font-size: 14px; line-height: 1.2; display: block; word-wrap: break-w=
+ord; padding: 10px 40px;" align=3D"left" valign=3D"top">
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px; font-weight: bold;">HomeSellers Real Estate Group</span><=
+span style=3D"font-size: 17px;"> operates as both a licensed brokerage and =
+a direct investment group.  We list properties traditionally, represent buy=
+ers and sellers, and also advertise direct investment opportunities owned o=
+r controlled by our group.</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><br></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px;">Licensed Florida Real Estate Brokerage</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px;">MLS Participant</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px;">Co-Broke Friendly</span></p>
+<p style=3D"text-align: center; margin: 0;" align=3D"center"><span style=3D=
+"font-size: 17px;">Investor &amp; Traditional Closings</span></p>
+<p style=3D"margin: 0;"><br></p>
+</td> </tr> </table>  </td> </tr> </table> <table class=3D"layout layout--1=
+-column" style=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpad=
+ding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"column column--1 scale stac=
+k" style=3D"width: 100%;" align=3D"center" valign=3D"top"> <table class=3D"=
+image image--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0=
+" cellspacing=3D"0"> <tr> <td class=3D"image_container content-padding-hori=
+zontal" style=3D"padding: 10px 40px;" align=3D"center" valign=3D"top"> <tab=
+le class=3D"image_container-caption text" border=3D"0" cellpadding=3D"0" ce=
+llspacing=3D"0" style=3D"table-layout: fixed;"> <tr> <td class=3D"text_cont=
+ent-cell" style=3D"text-align: -webkit-center; font-family: Arial,Verdana,H=
+elvetica,sans-serif; color: #3E3E3E; font-size: 14px; line-height: 1.2; dis=
+play: block; word-wrap: break-word; padding: 0px;" align=3D"center"> <img d=
+ata-image-content class=3D"image_content" style=3D"display: block; height: =
+auto; max-width: 100%;" width=3D"600" src=3D"https://files.constantcontact.=
+com/e5d8bc46501/7d2245b4-a308-49c0-8200-77c7ba414741.png?rdr=3Dtrue" alt=3D=
+"" align=3D"center">  </td> </tr> </table> </td> </tr> </table>  </td> </tr=
+> </table> <table class=3D"layout layout--1-column" style=3D"table-layout: =
+fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <t=
+r> <td class=3D"column column--1 scale stack" style=3D"width: 100%;" align=
+=3D"center" valign=3D"top"> <table class=3D"text text--padding-vertical" wi=
+dth=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed;"> <tr> <td class=3D"text_content-cell content-padding-hori=
+zontal" style=3D"text-align: left; font-family: Arial,Verdana,Helvetica,san=
+s-serif; color: #3E3E3E; font-size: 14px; line-height: 1.2; display: block;=
+ word-wrap: break-word; padding: 10px 40px;" align=3D"left" valign=3D"top">
+<p style=3D"text-align: justify; margin: 0;" align=3D"justify"><span style=
+=3D"font-size: 10px; color: inherit;">DISCLAIMER: Our lists are not sold to=
+ any outside vendor. To be removed from this e-mail list, either reply to t=
+his message with the word 'unsubscribe' in the subject line and your full n=
+ame, or choose the Unsubscribe option below. FFD LLC. does not exist to ren=
+der, and does not give legal, tax, economic, or advice. Values are strictly=
+ an opinion. Consult an appraiser for true values. Furthermore, FFD LLC. di=
+sclaims all liability for the actions or inaction's taken or not taken as a=
+ result of communications from or to its officers, directors and members.&#=
+xa0;</span></p>
+<p style=3D"margin: 0;"><span style=3D"font-size: 10px; color: inherit;">&#=
+xa0;</span></p>
+<p style=3D"text-align: justify; margin: 0;" align=3D"justify"><span style=
+=3D"font-size: 10px; color: inherit;">* DISCLAIMER: The sale of these Prope=
+rties may be contingent upon a successful close by the Buyer under Contract=
+ with the Current Owner. Seller (ERG Global Solutions, Inc and/or HomeSelle=
+rs Real Estate Services) may not be the owner of record of the applicable c=
+ourt jurisdiction; however, the Seller holds equitable interest in the prop=
+erty along with owner of record and such interest is documented by an execu=
+ted Purchase and Sale Agreement.</span></p>
+<p style=3D"margin: 0;"><br></p>
+</td> </tr> </table>  </td> </tr> </table>  </td> </tr> </table> </td> </tr=
+> </table> </td> </tr> <tr class=3D""> <td class=3D"shell_panel-cell shell_=
+panel-cell--footer" style=3D"background-color: #FFFFFF;" align=3D"center" v=
+align=3D"top" bgcolor=3D"#FFFFFF"> <table class=3D"shell_width-row scale" s=
+tyle=3D"width: 700px;" align=3D"center" border=3D"0" cellpadding=3D"0" cell=
+spacing=3D"0"> <tr> <td class=3D"shell_width-cell" style=3D"padding: 0px 10=
+px;" align=3D"center" valign=3D"top"> <table class=3D"shell_content-row" wi=
+dth=3D"100%" align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=3D=
+"0"> <tr> <td class=3D"shell_content-cell" style=3D"background-color: trans=
+parent; padding: 0; border: 0 solid #3E3E3E;" align=3D"center" valign=3D"to=
+p" bgcolor=3D"transparent"> <table class=3D"layout layout--1-column" style=
+=3D"table-layout: fixed;" width=3D"100%" border=3D"0" cellpadding=3D"0" cel=
+lspacing=3D"0"> <tr> <td class=3D"column column--1 scale stack" style=3D"wi=
+dth: 100%;" align=3D"center" valign=3D"top"> <table class=3D"complianceAddr=
+ess complianceAddress--padding-vertical" width=3D"100%" border=3D"0" cellpa=
+dding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"complianceAddress_content-=
+cell content-padding-horizontal" align=3D"center" style=3D"color: #595959; =
+font-family: Verdana,Geneva,sans-serif; font-size: 12px; line-height: 1.2; =
+padding: 10px 40px;"> <p style=3D"margin: 0;"><span>Ernie The Title Guy | <=
+/span><span>261 NE 1 ST</span><span>   | </span><span>Miami, FL 33132 US</s=
+pan></p> </td> </tr> </table>   <table class=3D"complianceLinks complianceL=
+inks--padding-vertical" width=3D"100%" border=3D"0" cellpadding=3D"0" cells=
+pacing=3D"0"> <tr> <td class=3D"complianceLinks_content-cell content-paddin=
+g-horizontal" align=3D"center" style=3D"color: #595959; font-family: Verdan=
+a,Geneva,sans-serif; font-size: 12px; line-height: 1.2; padding: 10px 40px;=
+"> <p style=3D"margin: 0;"> <a href=3D"https://audience.constantcontact.com=
+/preferences/unsubscribe?m=3D001bCPQbrFT3d2-iBgmqFBqKg=3D=3D&c=3Dff580dd4-5=
+265-11ee-9e9e-fa163ec0164a&ca=3D88ac846a-1b9d-4d50-8449-e3e05a79b941" data-=
+track=3D"false" style=3D"color: inherit;">Unsubscribe<span></span></a><span=
+> | </span><span></span><span><a href=3D"https://audience.constantcontact.c=
+om/preferences/update/init?ch=3Dff688d76-5265-11ee-9e9e-fa163ec0164a&c=3Dff=
+580dd4-5265-11ee-9e9e-fa163ec0164a&t=3D0017Nb7ofm2n7SmDJra0D1d9g=3D=3D&m=3D=
+001bCPQbrFT3d2-iBgmqFBqKg=3D=3D&ca=3D88ac846a-1b9d-4d50-8449-e3e05a79b941" =
+data-track=3D"false" style=3D"color: inherit;">Update Profile</a></span><sp=
+an> | </span><span><span></span><a href=3D"https://www.constantcontact.com/=
+legal/customer-contact-data-notice" data-track=3D"false" style=3D"color: in=
+herit;">Constant Contact Data Notice</a></span> </p> </td> </tr> </table>  =
+</td> </tr> </table>  </td> </tr> </table> </td> </tr> </table> </td> </tr>=
+ <tr class=3D""> <td class=3D"shell_panel-cell shell_panel-cell--footer" st=
+yle=3D"background-color: #FFFFFF;" align=3D"center" valign=3D"top" bgcolor=
+=3D"#FFFFFF"> <table class=3D"shell_width-row scale" style=3D"width: 700px;=
+" align=3D"center" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <=
+td class=3D"shell_width-cell" style=3D"padding: 0px 10px;" align=3D"center"=
+ valign=3D"top"> <table class=3D"shell_content-row" width=3D"100%" align=3D=
+"center" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=
+=3D"shell_content-cell" style=3D"background-color: transparent; padding: 0;=
+ border: 0 solid #3E3E3E;" align=3D"center" valign=3D"top" bgcolor=3D"trans=
+parent"> <table class=3D"layout layout--1-column" style=3D"table-layout: fi=
+xed;" width=3D"100%" border=3D"0" cellpadding=3D"0" cellspacing=3D"0"> <tr>=
+ <td class=3D"column column--1 scale stack" style=3D"width: 100%;" align=3D=
+"center" valign=3D"top"> <table class=3D"image" width=3D"100%" border=3D"0"=
+ cellpadding=3D"0" cellspacing=3D"0"> <tr> <td class=3D"image_container" st=
+yle=3D"" align=3D"center" valign=3D"top"> <table class=3D"image_container-c=
+aption text" border=3D"0" cellpadding=3D"0" cellspacing=3D"0" style=3D"tabl=
+e-layout: fixed;"> <tr> <td class=3D"text_content-cell" style=3D"text-align=
+: -webkit-center; font-family: Arial,Verdana,Helvetica,sans-serif; color: #=
+3E3E3E; font-size: 14px; line-height: 1.2; display: block; word-wrap: break=
+-word; padding: 0px;" align=3D"center"> <a href=3D"https://www.constantcont=
+act.com/landing1/vr/home?cc=3Dnge&utm_campaign=3Dnge&rmc=3DVF21_CPE&utm_med=
+ium=3DVF21_CPE&utm_source=3Dviral&pn=3DROVING&nav=3D88ac846a-1b9d-4d50-8449=
+-e3e05a79b941" data-trackable=3D"false" style=3D"color: #2C74FF; font-weigh=
+t: bold; text-decoration: none;"><img data-image-content class=3D"image_con=
+tent" style=3D"display: block; height: auto; max-width: 100%;" width=3D"220=
+" src=3D"https://imgssl.constantcontact.com/letters/images/CPE/referralLogo=
+s/H-Stacked-FC-WhiteBG-Email-Footer_newtagline.png" alt=3D"Constant Contact=
+" align=3D"center"></a>  </td> </tr> </table> </td> </tr> </table>  </td> <=
+/tr> </table>  </td> </tr> </table> </td> </tr> </table> </td> </tr>  </tab=
+le> </div>  </body>  </html>
+
+------=_Part_239054804_2019561815.1787005620290--

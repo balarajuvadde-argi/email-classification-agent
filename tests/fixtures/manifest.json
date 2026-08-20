@@ -1,0 +1,56 @@
+[
+  {
+    "fixture": "wholesale_01.eml",
+    "original_name": "Monday Deal Alert! Check Out These 9 Hot Deals!🎯📢.eml",
+    "expected": "WHOLESALE",
+    "sha256": "a185fe25fc116ec1e8138532c32d490eb81958a10ffb57c382c6dd8e1cbf02c6"
+  },
+  {
+    "fixture": "wholesale_02.eml",
+    "original_name": "Tuesday Finale 🎬 13 Amazing Deals To Close Out The Night!🌙.eml",
+    "expected": "WHOLESALE",
+    "sha256": "c3f2bf9caeab76e4499c1bef56fda3aa8c37fc60385ecf224139ae0da193282c"
+  },
+  {
+    "fixture": "wholesale_03.eml",
+    "original_name": "📍 East of I-95: Affordable Miami Lot Near Golden Glades 💰.eml",
+    "expected": "WHOLESALE",
+    "sha256": "7694e057f4205b3c7de1ec3e5ba126d0d4f754600a5492c082a20650631d9866"
+  },
+  {
+    "fixture": "wholesale_04.eml",
+    "original_name": "🔥 New 3/3 Townhouse Deal | Only $279,999.eml",
+    "expected": "WHOLESALE",
+    "sha256": "f7f92702c01011ce6a5395a14924b87f97d026e9d5f41001a172395c5fc0cea4"
+  },
+  {
+    "fixture": "wholesale_05.eml",
+    "original_name": "🔥Monday’s Looking Good! 11 Incredible Deals Just Landed! 💰.eml",
+    "expected": "WHOLESALE",
+    "sha256": "4c19ca204af5d550bd8ef58c759d5a998726d663ce68654ff833d93c432cb575"
+  },
+  {
+    "fixture": "wholesale_06.eml",
+    "original_name": "🚨 $374K Duplex + $279K 3/3 Townhouse.eml",
+    "expected": "WHOLESALE",
+    "sha256": "1b747d3f90b8fadd5ff85274e088a0218455c68967add5f1fad1e3270bf80321"
+  },
+  {
+    "fixture": "wholesale_07.eml",
+    "original_name": "🚨 NEW Hollywood Duplex | $374K Buy → $550K ARV.eml",
+    "expected": "WHOLESALE",
+    "sha256": "279e7a12d87514a5281b6f7053b342e41d8705d4fd5bfae2e1dc2426d7535ff2"
+  },
+  {
+    "fixture": "wholesale_08.eml",
+    "original_name": "🚨 NEW Miami Deal | $539K Buy → $850K ARV.eml",
+    "expected": "WHOLESALE",
+    "sha256": "8744ad52eb031edbd4b89c587bce11bb732a1531c56c3e06559bce2e13daf569"
+  },
+  {
+    "fixture": "wholesale_09.eml",
+    "original_name": "🚨 New Miami-Dade Wholesale Deals – Priced to Move FAST.eml",
+    "expected": "WHOLESALE",
+    "sha256": "8731da7c39b28305b112ed668f7f6e18f13e53d5bc4c8337de4a6497e27084ac"
+  }
+]

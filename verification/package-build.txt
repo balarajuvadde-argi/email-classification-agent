@@ -1,0 +1,2 @@
+pip wheel --no-deps --no-build-isolation: PASS
+wheel: email_classification_agent-2.0.0-py3-none-any.whl

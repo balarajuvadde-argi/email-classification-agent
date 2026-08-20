@@ -1,0 +1,13 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.aws-sam/
+build/
+dist/
+*.egg-info/
+gmail_oauth_secret.json
+verification/*.json
+client_secret.json

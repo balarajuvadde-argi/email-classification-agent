@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Requirement-driven Gmail Wholesale email classification agent (policy v2)
+
+Parameters:
+  ExpectedGmailAddress:
+    Type: String
+    Description: Exact Gmail address the agent is allowed to modify
+  GmailOAuthSecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing Google authorized-user OAuth JSON
+  OpenAIApiKeySecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing {"api_key":"..."}
+  OpenAIModel:
+    Type: String
+    Default: gpt-5-mini
+  DryRun:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  ScheduleExpression:
+    Type: String
+    Default: rate(2 minutes)
+
+Resources:
+  EmailClassifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: email_classification_agent.handler.lambda_handler
+      Runtime: python3.13
+      MemorySize: 512
+      Timeout: 120
+      ReservedConcurrentExecutions: 1
+      Environment:
+        Variables:
+          EXPECTED_GMAIL_ADDRESS: !Ref ExpectedGmailAddress
+          GMAIL_OAUTH_SECRET_ID: !Ref GmailOAuthSecretArn
+          OPENAI_API_KEY_SECRET_ID: !Ref OpenAIApiKeySecretArn
+          OPENAI_MODEL: !Ref OpenAIModel
+          DRY_RUN: !Ref DryRun
+          USE_LLM: 'true'
+          WHOLESALE_LABEL: Wholesale
+          PROCESSED_LABEL: EmailAgent/Processed/v2
+          GMAIL_QUERY: in:inbox -in:spam -in:trash
+          MAX_MESSAGES_PER_RUN: '50'
+          MAX_THREAD_MESSAGES: '6'
+          MAX_BODY_CHARS: '20000'
+          MIN_LLM_WHOLESALE_CONFIDENCE: '0.85'
+          MARK_LOW_CONFIDENCE_PROCESSED: 'false'
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource:
+                - !Ref GmailOAuthSecretArn
+                - !Ref OpenAIApiKeySecretArn
+      Events:
+        InboxSchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref ScheduleExpression
+            State: ENABLED
+            FlexibleTimeWindow:
+              Mode: 'OFF'
+
+Outputs:
+  FunctionName:
+    Value: !Ref EmailClassifierFunction

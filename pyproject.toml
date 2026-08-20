@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "email-classification-agent"
+version = "2.0.0"
+description = "Thread-aware Gmail classifier for non-approved real-estate property pitches"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+authors = [{ name = "RG Family" }]
+dependencies = [
+  "boto3>=1.35,<2",
+  "google-api-python-client>=2.160,<3",
+  "google-auth>=2.38,<3",
+  "google-auth-oauthlib>=1.2,<2",
+  "openai>=2.45,<3",
+  "pydantic>=2.11,<3",
+  "python-dotenv>=1.0,<2",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "PyYAML>=6,<7",
+  "ruff>=0.12,<1",
+]
+
+[project.scripts]
+email-classifier = "email_classification_agent.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
