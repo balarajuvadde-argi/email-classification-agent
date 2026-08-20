@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Labels applied — Inbox Pilot{% endblock %}
+{% block content %}
+<section class="centered-card card success-card">
+  <div class="success-mark">✓</div>
+  <p class="eyebrow">Reviewed action completed</p>
+  <h1>Gmail labels were applied safely.</h1>
+  <p>{{ report.labeled }} message{{ '' if report.labeled == 1 else 's' }} received a destination label. {{ report.low_confidence }} below-threshold decision{{ '' if report.low_confidence == 1 else 's' }} remained unprocessed.</p>
+  <p>No Inbox, archive, delete, send, or label-removal operation was performed.</p>
+  <a class="primary button-link" href="/dashboard">Return to dashboard</a>
+</section>
+{% endblock %}

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import base64
 import re
+from collections.abc import Iterable
 from email import policy
 from email.message import EmailMessage, Message
 from email.parser import BytesParser
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .models import ParsedEmail
 
@@ -171,6 +172,17 @@ def parse_eml(path: Path, message_id: str | None = None) -> ParsedEmail:
         message,
         message_id=resolved_id,
         thread_id=resolved_id,
+        label_ids=(),
+        internal_date_ms=0,
+    )
+
+
+def parse_eml_bytes(data: bytes, message_id: str = "uploaded-eml") -> ParsedEmail:
+    message: EmailMessage = BytesParser(policy=policy.default).parsebytes(data)
+    return _parsed_from_email_message(
+        message,
+        message_id=message_id,
+        thread_id=message_id,
         label_ids=(),
         internal_date_ms=0,
     )

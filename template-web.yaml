@@ -1,0 +1,480 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Multi-tenant Inbox Pilot web application and Gmail classification workers
+
+Parameters:
+  CustomDomainName:
+    Type: String
+    Description: Verified public hostname, such as inbox.example.com
+    AllowedPattern: '^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])$'
+  CertificateArn:
+    Type: String
+    Description: ACM certificate ARN for CustomDomainName in this AWS Region
+  HostedZoneId:
+    Type: String
+    Description: Route 53 public hosted-zone ID containing CustomDomainName
+  GoogleOAuthClientSecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing the Google Web OAuth client JSON
+  OpenAIApiKeySecretArn:
+    Type: String
+    Description: Secrets Manager ARN containing {"api_key":"..."}
+  OpenAIModel:
+    Type: String
+    Default: gpt-5-mini
+  ServiceName:
+    Type: String
+    Default: Inbox Pilot
+    MinLength: 1
+    MaxLength: 80
+  OperatorName:
+    Type: String
+    Description: Legal name of the service operator
+    MinLength: 2
+    MaxLength: 120
+  PrivacyContactEmail:
+    Type: String
+    Description: Monitored privacy contact shown to users
+    AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+  SupportEmail:
+    Type: String
+    Description: Monitored support contact shown to users
+    AllowedPattern: '^[^@\s]+@[^@\s]+\.[^@\s]+$'
+  PrivacyEffectiveDate:
+    Type: String
+    Description: Effective date displayed on the privacy notice (YYYY-MM-DD)
+    AllowedPattern: '^\d{4}-\d{2}-\d{2}$'
+  PrivacyNoticeVersion:
+    Type: String
+    Description: Increment whenever user-facing privacy or provider disclosures change
+    MinLength: 1
+    MaxLength: 40
+  BackupRecoveryDays:
+    Type: Number
+    Default: 7
+    MinValue: 1
+    MaxValue: 35
+  AlarmNotificationTopicArn:
+    Type: String
+    Description: Existing SNS topic ARN for operational alarms
+  ScheduleExpression:
+    Type: String
+    Default: rate(5 minutes)
+  RunRetentionSeconds:
+    Type: Number
+    Default: 86400
+    MinValue: 3600
+    MaxValue: 604800
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Architectures: [x86_64]
+    Tracing: Active
+    Environment:
+      Variables:
+        APP_ENV: production
+        APP_BASE_URL: !Sub https://${CustomDomainName}
+        MULTITENANT_TABLE_NAME: !Ref ApplicationTable
+        TOKEN_KMS_KEY_ID: !GetAtt TokenKey.Arn
+        GOOGLE_OAUTH_CLIENT_SECRET_ID: !Ref GoogleOAuthClientSecretArn
+        OPENAI_API_KEY_SECRET_ID: !Ref OpenAIApiKeySecretArn
+        OPENAI_MODEL: !Ref OpenAIModel
+        CLASSIFICATION_QUEUE_URL: !Ref ClassificationQueue
+        RUN_TTL_SECONDS: !Ref RunRetentionSeconds
+        SESSION_TTL_SECONDS: '86400'
+        OAUTH_STATE_TTL_SECONDS: '600'
+        ACTION_PLAN_TTL_SECONDS: '900'
+        AUTOMATIC_INTERVAL_SECONDS: '900'
+        WORKER_LEASE_SECONDS: '330'
+        MANUAL_RUNS_PER_DAY: '50'
+        EML_PREVIEWS_PER_DAY: '20'
+        AUTOMATIC_RUNS_PER_DAY: '96'
+        SERVICE_NAME: !Ref ServiceName
+        OPERATOR_NAME: !Ref OperatorName
+        PRIVACY_CONTACT_EMAIL: !Ref PrivacyContactEmail
+        SUPPORT_EMAIL: !Ref SupportEmail
+        AI_PROVIDER_NAME: OpenAI
+        AI_PROVIDER_DATA_POLICY_URL: https://developers.openai.com/api/docs/guides/your-data
+        PRIVACY_EFFECTIVE_DATE: !Ref PrivacyEffectiveDate
+        PRIVACY_NOTICE_VERSION: !Ref PrivacyNoticeVersion
+        BACKUP_RECOVERY_DAYS: !Ref BackupRecoveryDays
+
+Resources:
+  TokenKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Encrypts per-user Google OAuth grants for Inbox Pilot
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+
+  TokenKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/inbox-pilot-${AWS::StackName}
+      TargetKeyId: !Ref TokenKey
+
+  ApplicationTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+        - AttributeName: schedule_key
+          AttributeType: S
+        - AttributeName: next_run_at
+          AttributeType: N
+        - AttributeName: owner_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ScheduleIndex
+          KeySchema:
+            - AttributeName: schedule_key
+              KeyType: HASH
+            - AttributeName: next_run_at
+              KeyType: RANGE
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - user_id
+              - policy_hash
+              - consent_version
+              - connection_version
+        - IndexName: OwnerIndex
+          KeySchema:
+            - AttributeName: owner_key
+              KeyType: HASH
+          Projection:
+            ProjectionType: INCLUDE
+            NonKeyAttributes:
+              - connection_version
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+        RecoveryPeriodInDays: !Ref BackupRecoveryDays
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt TokenKey.Arn
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  ClassificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  ClassificationQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      FifoQueue: true
+      ContentBasedDeduplication: false
+      VisibilityTimeout: 1800
+      MessageRetentionPeriod: 345600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ClassificationDeadLetterQueue.Arn
+        maxReceiveCount: 5
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 14
+
+  WebApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      DisableExecuteApiEndpoint: true
+      Domain:
+        DomainName: !Ref CustomDomainName
+        CertificateArn: !Ref CertificateArn
+        EndpointConfiguration: REGIONAL
+        SecurityPolicy: TLS_1_2
+        Route53:
+          HostedZoneId: !Ref HostedZoneId
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 100
+        ThrottlingRateLimit: 50
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","routeKey":"$context.routeKey","status":"$context.status","responseLength":"$context.responseLength"}'
+
+  WebFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: email_classification_agent.web_handler.lambda_handler
+      MemorySize: 768
+      Timeout: 29
+      ReservedConcurrentExecutions: 20
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                - !Ref GoogleOAuthClientSecretArn
+                - !Ref OpenAIApiKeySecretArn
+            - Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt TokenKey.Arn
+              Condition:
+                StringEquals:
+                  'kms:EncryptionContext:application': universal-email-classifier
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:TransactWriteItems
+                - dynamodb:Query
+              Resource:
+                - !GetAtt ApplicationTable.Arn
+                - !Sub ${ApplicationTable.Arn}/index/OwnerIndex
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt ClassificationQueue.Arn
+      Events:
+        Root:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WebApi
+            Path: /
+            Method: ANY
+        Proxy:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WebApi
+            Path: /{proxy+}
+            Method: ANY
+
+  WorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: email_classification_agent.worker.lambda_handler
+      MemorySize: 1024
+      Timeout: 300
+      ReservedConcurrentExecutions: 10
+      Policies:
+        - SQSPollerPolicy:
+            QueueName: !GetAtt ClassificationQueue.QueueName
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                - !Ref GoogleOAuthClientSecretArn
+                - !Ref OpenAIApiKeySecretArn
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+              Resource: !GetAtt TokenKey.Arn
+              Condition:
+                StringEquals:
+                  'kms:EncryptionContext:application': universal-email-classifier
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:TransactWriteItems
+              Resource: !GetAtt ApplicationTable.Arn
+
+  WorkerQueueMapping:
+    Type: AWS::Lambda::EventSourceMapping
+    Properties:
+      FunctionName: !Ref WorkerFunction
+      EventSourceArn: !GetAtt ClassificationQueue.Arn
+      BatchSize: 1
+      FunctionResponseTypes:
+        - ReportBatchItemFailures
+      ScalingConfig:
+        MaximumConcurrency: 10
+      MetricsConfig:
+        Metrics:
+          - EventCount
+
+  DispatcherFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: email_classification_agent.dispatcher.lambda_handler
+      MemorySize: 256
+      Timeout: 30
+      ReservedConcurrentExecutions: 1
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:TransactWriteItems
+              Resource:
+                - !GetAtt ApplicationTable.Arn
+                - !Sub ${ApplicationTable.Arn}/index/ScheduleIndex
+            - Effect: Allow
+              Action: sqs:SendMessage
+              Resource: !GetAtt ClassificationQueue.Arn
+      Events:
+        Schedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: !Ref ScheduleExpression
+            State: ENABLED
+            FlexibleTimeWindow:
+              Mode: 'OFF'
+
+  WebLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: WebFunction
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${WebFunction}
+      RetentionInDays: 14
+
+  WorkerLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: WorkerFunction
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${WorkerFunction}
+      RetentionInDays: 14
+
+  DispatcherLogGroup:
+    Type: AWS::Logs::LogGroup
+    DependsOn: DispatcherFunction
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${DispatcherFunction}
+      RetentionInDays: 14
+
+  DeadLetterAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Inbox Pilot classification jobs reached the dead-letter queue
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ClassificationDeadLetterQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmNotificationTopicArn
+
+  WorkerErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Inbox Pilot classification worker requested an SQS retry
+      Namespace: AWS/Lambda
+      MetricName: FailedInvokeEventCount
+      Dimensions:
+        - Name: EventSourceMappingUUID
+          Value: !Ref WorkerQueueMapping
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmNotificationTopicArn
+
+  TerminalRunFailureMetricFilter:
+    Type: AWS::Logs::MetricFilter
+    DependsOn: WorkerLogGroup
+    Properties:
+      LogGroupName: !Ref WorkerLogGroup
+      FilterPattern: '"Terminal classification failure"'
+      MetricTransformations:
+        - MetricNamespace: InboxPilot
+          MetricName: TerminalRunFailures
+          MetricValue: '1'
+          DefaultValue: 0
+
+  TerminalRunFailureAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Inbox Pilot classification exhausted all retries
+      Namespace: InboxPilot
+      MetricName: TerminalRunFailures
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmNotificationTopicArn
+
+  DispatcherErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Inbox Pilot automatic dispatcher returned an error
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref DispatcherFunction
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmNotificationTopicArn
+
+  QueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Inbox Pilot classification queue is delayed
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ClassificationQueue.QueueName
+      Statistic: Maximum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 900
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref AlarmNotificationTopicArn
+
+Outputs:
+  WebUrl:
+    Description: Verified custom-domain URL for the application
+    Value: !Sub https://${CustomDomainName}
+  OAuthCallbackUrl:
+    Value: !Sub https://${CustomDomainName}/oauth/google/callback
+  ApplicationTableName:
+    Value: !Ref ApplicationTable
+  TokenKeyArn:
+    Value: !GetAtt TokenKey.Arn

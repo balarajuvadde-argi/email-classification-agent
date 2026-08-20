@@ -5,7 +5,7 @@ import argparse
 import hashlib
 import json
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -66,7 +66,7 @@ def main() -> int:
         )
 
     output = {
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "policy_version": POLICY_VERSION,
         "file_count": len(rows),
         "all_match_recorded_references": all(

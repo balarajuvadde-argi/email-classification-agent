@@ -83,7 +83,7 @@ class Settings:
     max_thread_context_chars: int = 18_000
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         token_file_raw = os.getenv("GMAIL_TOKEN_FILE")
         return cls(
             expected_gmail_address=(os.getenv("EXPECTED_GMAIL_ADDRESS") or "").strip() or None,

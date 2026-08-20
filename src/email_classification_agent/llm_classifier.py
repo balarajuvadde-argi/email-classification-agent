@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from .models import LLMDecision, ParsedEmail
 
-
 INSTRUCTIONS = """
 You classify one CURRENT inbound email for a Gmail inbox. Return exactly the requested
 structured decision. Do not use sender-specific memorization or assume that a familiar

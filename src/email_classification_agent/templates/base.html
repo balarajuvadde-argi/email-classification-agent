@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>{% block title %}{{ service_name }}{% endblock %}</title>
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="{{ service_name }} home">
+      <span class="brand-mark">IP</span>
+      <span>{{ service_name }}</span>
+    </a>
+    <nav aria-label="Primary navigation">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      {% if user %}
+      <form method="post" action="/logout" class="inline-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="link-button" type="submit">Sign out</button>
+      </form>
+      {% endif %}
+    </nav>
+  </header>
+  <main>
+    {% if notice %}<div class="notice" role="status">{{ notice }}</div>{% endif %}
+    {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer>
+    <span>{{ service_name }}</span>
+    <span>Label-only Gmail classification. No archive, delete, send, or label removal.</span>
+  </footer>
+</body>
+</html>

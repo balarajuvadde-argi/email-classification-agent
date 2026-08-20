@@ -18,14 +18,31 @@ class GmailClient:
 
     def __init__(self, service: Any) -> None:
         self._service = service
+        self._label_cache: list[dict[str, Any]] | None = None
 
     @classmethod
-    def from_settings(cls, settings: Settings) -> "GmailClient":
+    def from_settings(cls, settings: Settings) -> GmailClient:
         # Imported lazily so policy/unit tests can run without Google SDK packages.
         from google.auth.transport.requests import Request
         from googleapiclient.discovery import build
 
         credentials = _credentials_from_settings(settings)
+        if not credentials.valid and credentials.refresh_token:
+            credentials.refresh(Request())
+        service = build("gmail", "v1", credentials=credentials, cache_discovery=False)
+        return cls(service)
+
+    @classmethod
+    def from_credentials(cls, credentials: Any) -> GmailClient:
+        """Build a client from one user's OAuth credentials.
+
+        The multi-tenant web application obtains credentials from its encrypted
+        per-user grant store. Keeping this constructor separate prevents a tenant
+        request from falling back to the legacy process-wide token settings.
+        """
+        from google.auth.transport.requests import Request
+        from googleapiclient.discovery import build
+
         if not credentials.valid and credentials.refresh_token:
             credentials.refresh(Request())
         service = build("gmail", "v1", credentials=credentials, cache_discovery=False)
@@ -37,16 +54,22 @@ class GmailClient:
 
     def list_labels(self) -> list[dict[str, Any]]:
         response = self._service.users().labels().list(userId="me").execute()
-        return list(response.get("labels") or [])
+        labels = list(response.get("labels") or [])
+        self._label_cache = labels
+        return labels
 
-    def find_label_id(self, name: str) -> str | None:
-        for label in self.list_labels():
-            if str(label.get("name") or "").casefold() == name.casefold():
+    def find_label_id(self, name: str, *, user_only: bool = False) -> str | None:
+        labels = self._label_cache if self._label_cache is not None else self.list_labels()
+        for label in labels:
+            if (
+                str(label.get("name") or "").casefold() == name.casefold()
+                and (not user_only or str(label.get("type") or "").casefold() == "user")
+            ):
                 return str(label.get("id") or "") or None
         return None
 
     def ensure_label(self, name: str, visible: bool, create: bool = True) -> str:
-        existing = self.find_label_id(name)
+        existing = self.find_label_id(name, user_only=True)
         if existing:
             return existing
         if not create:
@@ -60,6 +83,8 @@ class GmailClient:
         label_id = str(created.get("id") or "")
         if not label_id:
             raise RuntimeError(f"Gmail created label {name!r} without returning an ID")
+        if self._label_cache is not None:
+            self._label_cache.append({"id": label_id, "name": name, "type": "user"})
         return label_id
 
     def list_candidate_message_ids(
@@ -94,6 +119,24 @@ class GmailClient:
             if not page_token:
                 break
         return ids
+
+    def list_message_ids(self, query: str, max_results: int) -> list[str]:
+        """List a bounded set of Inbox message IDs for a tenant-owned query."""
+        if max_results < 1 or max_results > 500:
+            raise ValueError("max_results must be between 1 and 500")
+        response = (
+            self._service.users()
+            .messages()
+            .list(
+                userId="me",
+                q=query,
+                labelIds=["INBOX"],
+                includeSpamTrash=False,
+                maxResults=max_results,
+            )
+            .execute()
+        )
+        return [str(item["id"]) for item in (response.get("messages") or [])]
 
     def get_message(self, message_id: str) -> dict[str, Any]:
         resource = (

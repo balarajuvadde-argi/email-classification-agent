@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ service_name }} — Email classification you control{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow">Universal email classification</p>
+    <h1>Turn your own instructions into a safer Gmail workflow.</h1>
+    <p class="lead">Choose the labels. Write the classification rule. Review a preview before applying labels or enabling automatic processing.</p>
+    <form method="post" action="/connect/google" class="connect-card">
+      <label class="consent-row">
+        <input type="checkbox" name="consent" value="yes" required>
+        <span>I understand that selected email content is sent securely to {{ ai_provider_name }} for classification, as described in the <a href="/privacy">Privacy Policy</a>.</span>
+      </label>
+      <button class="primary" type="submit">Connect Gmail securely</button>
+      <p class="microcopy">Google will show the exact Gmail permission requested. You can disconnect and delete your stored connection at any time.</p>
+    </form>
+    <form method="post" action="/signin/google" class="returning-user">
+      <button class="secondary" type="submit">Returning user? Sign in</button>
+      <p class="microcopy">Identity-only sign-in does not request Gmail access again.</p>
+    </form>
+  </div>
+  <aside class="hero-panel" aria-label="How it works">
+    <div class="step"><span>01</span><div><strong>Define</strong><p>Write a plain-language policy and an allow-list of Gmail labels.</p></div></div>
+    <div class="step"><span>02</span><div><strong>Preview</strong><p>Run a bounded, read-only preview against an Inbox query.</p></div></div>
+    <div class="step"><span>03</span><div><strong>Apply</strong><p>Add reviewed labels while preserving the Inbox label.</p></div></div>
+  </aside>
+</section>
+<section class="trust-grid">
+  <article><h2>Prompt-controlled classification</h2><p>Your criteria are configurable. Platform safety rules and the allowed Gmail actions are not.</p></article>
+  <article><h2>Per-user OAuth isolation</h2><p>Every Gmail connection has its own encrypted grant. No user downloads or uploads OAuth secret files.</p></article>
+  <article><h2>Conservative by design</h2><p>Unknown labels and below-threshold decisions produce no Gmail destination action.</p></article>
+</section>
+{% endblock %}

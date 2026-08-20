@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Terms — {{ service_name }}{% endblock %}
+{% block content %}
+<article class="legal card">
+  <p class="eyebrow">Terms of service</p><h1>Use the service with human review</h1>
+  <p>These terms govern use of {{ service_name }}, operated by {{ operator_name }}, effective {{ privacy_effective_date }}.</p>
+  <h2>Service</h2><p>{{ service_name }} proposes and, when authorized, adds Gmail labels based on user-provided classification instructions. Model decisions are probabilistic and may be incorrect.</p>
+  <h2>User responsibility</h2><p>You are responsible for reviewing prompts, preview results, destination labels, and applicable legal or organizational requirements. Automatic mode can mark below-threshold messages as processed without a destination label. Do not use the service for prohibited discrimination, high-impact decisions, or unlawful monitoring.</p>
+  <h2>Availability</h2><p>The service may be interrupted by Google, the AI provider, network, quota, or account-policy restrictions. No guarantee of uninterrupted or error-free classification is made.</p>
+  <h2>Contact</h2><p>For support or service questions, contact <a href="mailto:{{ support_email }}">{{ support_email }}</a>.</p>
+</article>
+{% endblock %}
