@@ -44,5 +44,13 @@
   {% if run.mode == 'preview' %}<p class="microcopy">Preview plans expire after {{ plan_minutes }} minutes and can be applied only once. Applying queues the shown destination labels and a hidden processed marker; it removes nothing.</p>{% else %}<p class="microcopy">The worker only added the reviewed destination labels and hidden processed marker. It removed nothing.</p>{% endif %}
 </section>
 {% endif %}
-<p><a href="/dashboard">← Back to dashboard</a></p>
+<p>
+  {% if run.status == 'completed' and run.mode in ['preview', 'eml_test'] %}
+  <form method="post" action="/runs/preview" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="secondary" type="submit">Run saved policy again</button>
+  </form>
+  {% endif %}
+  <a href="/dashboard">← Back to dashboard</a>
+</p>
 {% endblock %}

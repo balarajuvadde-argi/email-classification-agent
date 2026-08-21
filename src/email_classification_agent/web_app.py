@@ -339,6 +339,9 @@ def create_app(
                     for run in runtime.store.list_runs(user.user_id, 10)
                     if run.connection_version == user.connection_version
                 ],
+                policy_revisions=runtime.store.list_policy_revisions(
+                    user.user_id, user.connection_version, 20
+                ),
                 notice=notice[:200],
                 error=error[:300],
                 consent_current=(

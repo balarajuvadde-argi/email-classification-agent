@@ -201,6 +201,10 @@ def test_settings_write_requires_csrf_and_rejects_system_label() -> None:
     assert "error=" in bad_label.headers["location"]
     assert good.status_code == 303
     assert store.get_user("u1").policy.labels == ["Finance", "News"]
+    revisions = store.list_policy_revisions("u1", "v1")
+    assert len(revisions) == 1
+    assert revisions[0].policy.prompt == base["prompt"]
+    assert revisions[0].policy_hash == store.get_user("u1").policy.policy_hash
 
 
 def test_user_cannot_read_another_users_run() -> None:

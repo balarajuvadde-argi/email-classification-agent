@@ -207,6 +207,18 @@ class SessionRecord:
 
 
 @dataclass(frozen=True, slots=True)
+class PolicyRevision:
+    policy_hash: str
+    saved_at: int
+    policy_json: str
+    connection_version: str = ""
+
+    @property
+    def policy(self) -> ClassificationPolicy:
+        return ClassificationPolicy.model_validate_json(self.policy_json)
+
+
+@dataclass(frozen=True, slots=True)
 class OAuthStateRecord:
     code_verifier: str
     expires_at: int

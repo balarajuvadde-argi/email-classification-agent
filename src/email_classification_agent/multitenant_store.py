@@ -12,6 +12,7 @@ from .universal_models import (
     ActionPlan,
     ClassificationPolicy,
     OAuthStateRecord,
+    PolicyRevision,
     RunRecord,
     ScheduledUserRecord,
     SessionRecord,
@@ -75,6 +76,10 @@ class MultiTenantStore(Protocol):
         connection_version: str,
         policy: ClassificationPolicy,
     ) -> UserRecord: ...
+
+    def list_policy_revisions(
+        self, user_id: str, connection_version: str, limit: int = 20
+    ) -> list[PolicyRevision]: ...
 
     def mark_policy_previewed(
         self,
@@ -169,6 +174,7 @@ class InMemoryMultiTenantStore:
         self.users: dict[str, UserRecord] = {}
         self.plans: dict[str, ActionPlan] = {}
         self.runs: dict[tuple[str, str], RunRecord] = {}
+        self.policy_revisions: dict[tuple[str, int, str], PolicyRevision] = {}
         self.active_runs: dict[str, tuple[str, int, str]] = {}
         self.quotas: dict[tuple[str, str, int], int] = {}
 
@@ -276,7 +282,26 @@ class InMemoryMultiTenantStore:
                 next_run_at=0 if policy.automatic_enabled else current.next_run_at,
             )
             self.users[user_id] = updated
+            revision = PolicyRevision(
+                policy_hash=policy.policy_hash,
+                saved_at=int(time.time()),
+                policy_json=policy.model_dump_json(),
+                connection_version=connection_version,
+            )
+            self.policy_revisions[(user_id, revision.saved_at, policy.policy_hash)] = revision
         return updated
+
+    def list_policy_revisions(
+        self, user_id: str, connection_version: str, limit: int = 20
+    ) -> list[PolicyRevision]:
+        with self._lock:
+            records = [
+                revision
+                for (owner, _, _), revision in self.policy_revisions.items()
+                if owner == user_id and revision.connection_version == connection_version
+            ]
+        records.sort(key=lambda revision: revision.saved_at, reverse=True)
+        return records[:limit]
 
     def mark_policy_previewed(
         self,
@@ -407,6 +432,8 @@ class InMemoryMultiTenantStore:
             self.users.pop(user_id, None)
             for key in [key for key in self.runs if key[0] == user_id]:
                 self.runs.pop(key, None)
+            for key in [key for key in self.policy_revisions if key[0] == user_id]:
+                self.policy_revisions.pop(key, None)
             for key, plan in list(self.plans.items()):
                 if plan.user_id == user_id:
                     self.plans.pop(key, None)
@@ -884,7 +911,50 @@ class DynamoDbMultiTenantStore:
         user = self._user_from_item(response.get("Attributes"))
         if user is None:
             raise RuntimeError("DynamoDB did not return the updated user")
+        self._table.put_item(
+            Item={
+                "pk": f"USER#{user_id}",
+                "sk": f"POLICY#{now:010d}#{policy.policy_hash}",
+                "entity_type": "POLICY_REVISION",
+                "user_id": user_id,
+                "policy_hash": policy.policy_hash,
+                "policy_json": policy.model_dump_json(),
+                "saved_at": now,
+                "connection_version": connection_version,
+                "ttl": now + 31_536_000,
+            }
+        )
         return user
+
+    @staticmethod
+    def _policy_revision_from_item(item: dict[str, Any] | None) -> PolicyRevision | None:
+        if not item or int(item.get("ttl") or 0) <= int(time.time()):
+            return None
+        return PolicyRevision(
+            policy_hash=str(item["policy_hash"]),
+            saved_at=int(item["saved_at"]),
+            policy_json=str(item["policy_json"]),
+            connection_version=str(item.get("connection_version") or ""),
+        )
+
+    def list_policy_revisions(
+        self, user_id: str, connection_version: str, limit: int = 20
+    ) -> list[PolicyRevision]:
+        from boto3.dynamodb.conditions import Key
+
+        response = self._table.query(
+            KeyConditionExpression=(
+                Key("pk").eq(f"USER#{user_id}") & Key("sk").begins_with("POLICY#")
+            ),
+            Limit=limit,
+            ScanIndexForward=False,
+        )
+        return [
+            revision
+            for item in response.get("Items") or []
+            if (revision := self._policy_revision_from_item(item)) is not None
+            and revision.connection_version == connection_version
+        ]
 
     def mark_policy_previewed(
         self,

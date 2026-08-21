@@ -8,6 +8,7 @@
   <div class="result-reason"><small>Reason</small><p>{{ result.reason }}</p></div>
   {% if result.evidence %}<div class="result-reason"><small>Evidence</small><ul>{% for item in result.evidence %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
 </section>
-<p class="microcopy">This test did not access or modify Gmail, and the uploaded file was not retained.</p>
+<p class="microcopy">This test did not access or modify Gmail, and the uploaded file was not retained. Run {{ result.run_id[-8:] }} was saved to your classification history.</p>
+<p><a class="secondary button-link" href="/runs/{{ result.run_id }}">View tracked test run</a></p>
 <p><a href="/dashboard">← Back to dashboard</a></p>
 {% endblock %}

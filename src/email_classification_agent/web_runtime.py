@@ -31,7 +31,7 @@ from .token_security import (
 )
 from .universal_agent import UniversalClassificationAgent
 from .universal_classifier import UniversalEmailClassifier
-from .universal_models import ActionPlan, RunRecord, UserRecord
+from .universal_models import ActionPlan, RunRecord, UniversalOutcome, UserRecord
 from .web_config import WebSettings, load_google_client_config, load_openai_api_key
 
 LOGGER = logging.getLogger(__name__)
@@ -536,7 +536,48 @@ class WebRuntime:
         label = decision.label
         if label and decision.confidence < user.policy.confidence_threshold:
             label = None
+        now = int(time.time())
+        run_id = f"{now:010d}-{secrets.token_hex(8)}"
+        outcome = UniversalOutcome(
+            message_id="uploaded-eml",
+            thread_id="uploaded-eml",
+            subject=message.subject[:500],
+            sender=message.from_header[:500],
+            proposed_label=label,
+            confidence=decision.confidence,
+            action="proposed" if label else "kept_unlabeled",
+            reason=decision.reason,
+            evidence=tuple(decision.evidence),
+        )
+        report = {
+            "mailbox": user.email,
+            "dry_run": True,
+            "policy_hash": user.policy.policy_hash,
+            "processed_label": user.policy.processed_label,
+            "scanned": 1,
+            "proposed": int(bool(label)),
+            "labeled": 0,
+            "kept_unlabeled": int(not label),
+            "low_confidence": int(bool(decision.label and not label)),
+            "failed": 0,
+            "outcomes": [outcome.as_dict()],
+        }
+        self.store.put_run(
+            RunRecord(
+                run_id=run_id,
+                user_id=user.user_id,
+                mode="eml_test",
+                status="completed",
+                policy_hash=user.policy.policy_hash,
+                created_at=now,
+                updated_at=now,
+                expires_at=now + self.settings.run_ttl_seconds,
+                report_json=json.dumps(report, separators=(",", ":")),
+                connection_version=user.connection_version,
+            )
+        )
         return {
+            "run_id": run_id,
             "subject": message.subject[:500],
             "sender": message.from_header[:500],
             "label": label,
