@@ -11,6 +11,12 @@ It supports:
 - `.eml` tests
 - run and instruction history while the instance is alive
 
+The web flow is multi-user. Any Google account can create its own connection when that
+account's owner explicitly signs in and grants access. There is no application allow-list for
+`maurice@argifamily.com` or any other mailbox. The client must personally complete Google
+consent; being logged in on a developer's computer does not authorize access on the client's
+behalf.
+
 It does **not** provide durable storage. Render Free can sleep or restart the service, which
 clears local users, sessions, OAuth grants, policies, and history. Do not use this profile for
 real users or unattended scheduled processing. Use `docs/WEB_DEPLOYMENT.md` and
@@ -49,8 +55,11 @@ https://YOUR-RENDER-SERVICE.onrender.com/oauth/google/callback
 The client JSON must be a Web client with a top-level `web` object. Do not use the legacy
 Desktop client or `gmail_oauth_secret.json`.
 
-Google may restrict testing to accounts added as test users. The application requests the
-restricted Gmail scope `gmail.modify`; public use requires Google review.
+While the Google project is in testing mode, add every intended demo account as a Google test
+user, including `maurice@argifamily.com`. Each user must authorize their own mailbox. For
+unrestricted access by arbitrary Google accounts, publish the OAuth app as External and
+complete Google's review for the restricted `gmail.modify` scope; Render deployment alone
+cannot bypass Google's consent or verification requirements.
 
 ## 3. Create the Render service
 
@@ -75,6 +84,7 @@ APP_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
 APP_ENV=staging
 MVP_MODE=true
 OPENAI_API_KEY=your OpenAI project key
+OPENAI_MODEL=gpt-4o-mini
 GOOGLE_OAUTH_CLIENT_CONFIG_JSON=<complete Google Web client JSON>
 OPERATOR_NAME=Your name or organization
 PRIVACY_CONTACT_EMAIL=real monitored email
@@ -133,7 +143,7 @@ Then test this sequence:
 
 1. Open the home page.
 2. Accept the privacy checkbox.
-3. Connect a Google test account.
+3. Connect a Google account whose owner has approved the access.
 4. Save a policy.
 5. Run a read-only preview.
 6. Confirm the run appears in history.
@@ -141,6 +151,11 @@ Then test this sequence:
 8. Confirm the test run and instruction revision appear in history.
 9. Apply only a reviewed preview.
 10. Keep automatic classification disabled.
+
+For the client handoff, send the client the Render URL and ask them to open it while signed in
+to `maurice@argifamily.com`, accept the privacy notice, click **Connect Gmail securely**, and
+approve the Google permission screen. Do not ask the client for `client_secret.json`,
+`gmail_oauth_secret.json`, a password, or a refresh token.
 
 ## Viewing logs
 
@@ -191,3 +206,17 @@ external queue and worker.
 
 This is expected after a free-instance restart. The MVP intentionally has no persistent
 storage. Do not treat it as a production data store.
+
+### Classification run says the worker could not complete
+
+If Render logs show `POST https://api.openai.com/v1/responses` with `404 Not Found`, open
+Render **Environment** and set:
+
+```text
+OPENAI_MODEL=gpt-4o-mini
+```
+
+Save the change and redeploy. An existing manually-created Render environment variable can
+override the value in `render.yaml`, so check the effective Render value rather than only the
+repository file. The run page now reports that the configured model is unavailable, and the
+server log includes the model name and HTTP status without logging the API key or email data.

@@ -47,6 +47,11 @@ The earlier `client_secret.json` and `gmail_oauth_secret.json` workflow belongs 
 legacy single-mailbox CLI. Never place either file in a public image, browser bundle, source
 repository, Lambda environment variable, or downloadable web asset.
 
+The web application is multi-user and does not restrict connections to the legacy mailbox.
+Any Google account may connect its own mailbox after its owner completes Google OAuth consent.
+Do not access a client's mailbox without that client's explicit authorization; do not ask for
+their Google password or OAuth token.
+
 ## Web quick start
 
 For a local UI smoke test, copy `.env.web.example` to `.env.web`, provide a local Google Web
