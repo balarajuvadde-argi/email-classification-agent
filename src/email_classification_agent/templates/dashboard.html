@@ -38,7 +38,7 @@
       <label>
         <span>Allowed Gmail labels</span>
         <textarea name="labels" rows="4" maxlength="1200" required placeholder="Finance&#10;News&#10;Client Follow-up">{{ policy.labels | join('\n') if policy else '' }}</textarea>
-        <small>One label per line, up to 12. The model cannot create or select anything outside this list.</small>
+        <small>One label per line, up to 12. Use Wholesaler or Wholesale for Miami-Dade sublabel routing.</small>
       </label>
       <div class="form-grid">
         <label>
@@ -48,7 +48,7 @@
         </label>
         <label>
           <span>Messages per run</span>
-          <input name="max_messages" type="number" min="1" max="10" value="{{ policy.max_messages_per_run if policy else 10 }}">
+          <input name="max_messages" type="number" min="1" max="500" value="{{ policy.max_messages_per_run if policy else 10 }}">
         </label>
         <label>
           <span>Minimum confidence</span>

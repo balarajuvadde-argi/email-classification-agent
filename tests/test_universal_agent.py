@@ -76,6 +76,85 @@ def _policy(threshold=0.85):
     )
 
 
+def _wholesale_policy():
+    return ClassificationPolicy(
+        prompt="Label actual wholesale property offers as Wholesaler.",
+        labels=["Wholesaler"],
+    )
+
+
+def _wholesale_resource(message_id="m1"):
+    resource = _resource(message_id)
+    resource["payload"] = {
+        "mimeType": "text/plain",
+        "headers": [
+            {"name": "From", "value": "Vendor <billing@example.com>"},
+            {"name": "Subject", "value": "Wholesale deal in 33131"},
+        ],
+        "body": {"data": _encoded("Property offer in Miami, FL 33131")},
+    }
+    return resource
+
+
+def test_miami_dade_zip_adds_derived_sublabel_on_preview() -> None:
+    gmail = _Gmail()
+    gmail.get_message = _wholesale_resource
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesaler",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+    ).preview(_wholesale_policy())
+
+    assert report.outcomes[0].secondary_label == "Wholesaler/Miami-Dade"
+    assert gmail.writes == []
+
+
+def test_miami_dade_sublabel_is_added_during_apply() -> None:
+    gmail = _Gmail()
+    gmail.get_message = _wholesale_resource
+    policy = _wholesale_policy()
+    agent = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesaler",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+    )
+    preview = agent.preview(policy)
+    plan = ActionPlan(
+        user_id="u1",
+        policy_hash=policy.policy_hash,
+        mailbox="user@example.com",
+        outcomes=tuple(preview.outcomes),
+        expires_at=int(time.time()) + 60,
+    )
+
+    agent.apply_plan(policy, plan)
+
+    assert gmail.writes == [
+        (
+            "m1",
+            [
+                "ID:Wholesaler/Miami-Dade",
+                "ID:Wholesaler",
+                f"ID:{policy.processed_label}",
+            ],
+        )
+    ]
+
+
 def test_preview_is_read_only_and_proposes_only_allowed_label() -> None:
     gmail = _Gmail()
     classifier = _Classifier(

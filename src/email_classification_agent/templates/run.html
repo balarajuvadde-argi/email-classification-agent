@@ -28,12 +28,13 @@
   </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Email</th><th>Proposed label</th><th>Confidence</th><th>Reason</th></tr></thead>
+      <thead><tr><th>Email</th><th>Proposed label</th><th>Miami-Dade sublabel</th><th>Confidence</th><th>Reason</th></tr></thead>
       <tbody>
       {% for outcome in report.outcomes %}
         <tr>
           <td><strong>{{ outcome.subject or '(no subject)' }}</strong><small class="cell-subtext">{{ outcome.sender }}</small></td>
           <td>{% if outcome.proposed_label %}<span class="label-chip">{{ outcome.proposed_label }}</span>{% else %}<span class="muted">No label</span>{% endif %}</td>
+          <td>{% if outcome.secondary_label %}<span class="label-chip">{{ outcome.secondary_label }}</span>{% else %}<span class="muted">None</span>{% endif %}</td>
           <td>{{ '%.0f' | format(outcome.confidence * 100) }}%</td>
           <td>{{ outcome.reason }}</td>
         </tr>

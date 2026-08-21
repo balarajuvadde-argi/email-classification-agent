@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 
 from .email_parser import parse_gmail_message
@@ -15,6 +16,29 @@ from .universal_models import (
 )
 
 LOGGER = logging.getLogger(__name__)
+MIAMI_DADE_ZIPS = frozenset(
+    [
+        "33010", "33012", "33013", "33014", "33015", "33016", "33018", "33030",
+        "33031", "33032", "33033", "33034", "33035", "33054", "33055", "33056",
+        "33101", "33109", "33122", "33125", "33126", "33127", "33128", "33129",
+        "33130", "33131", "33132", "33133", "33134", "33135", "33136", "33137",
+        "33138", "33139", "33140", "33141", "33142", "33143", "33144", "33145",
+        "33146", "33147", "33149", "33150", "33154", "33155", "33156", "33157",
+        "33158", "33160", "33161", "33162", "33165", "33166", "33167", "33168",
+        "33169", "33170", "33172", "33173", "33174", "33175", "33176", "33177",
+        "33178", "33179", "33180", "33181", "33182", "33183", "33184", "33185",
+        "33186", "33187", "33189", "33190", "33193", "33194", "33196", "33231",
+    ]
+)
+
+
+def _miami_dade_label(primary_label: str | None, message: ParsedEmail) -> str | None:
+    if not primary_label or primary_label.casefold() not in {"wholesale", "wholesaler"}:
+        return None
+    current_text = f"{message.subject} {message.body_text}"
+    if any(re.search(rf"(?<!\d){zip_code}(?!\d)", current_text) for zip_code in MIAMI_DADE_ZIPS):
+        return f"{primary_label}/Miami-Dade"
+    return None
 
 
 class ProviderClassificationError(RuntimeError):
@@ -82,6 +106,7 @@ class UniversalClassificationAgent:
                 report.outcomes.append(outcome)
                 continue
             proposed_label = outcome.proposed_label
+            secondary_label = outcome.secondary_label
             if proposed_label:
                 exact_label = allowed_labels.get(proposed_label.casefold())
                 actionable = outcome.action == f"would_add:{proposed_label}"
@@ -105,6 +130,10 @@ class UniversalClassificationAgent:
                     )
                     continue
                 proposed_label = exact_label
+                if secondary_label and secondary_label.casefold() != (
+                    f"{proposed_label}/miami-dade"
+                ).casefold():
+                    secondary_label = None
             elif outcome.action != "would_mark_processed_without_destination":
                 report.failed += 1
                 report.outcomes.append(
@@ -133,6 +162,16 @@ class UniversalClassificationAgent:
                         )
                         label_ids[proposed_label] = label_id
                     ids.insert(0, label_id)
+                if secondary_label:
+                    secondary_id = label_ids.get(secondary_label)
+                    if secondary_id is None:
+                        secondary_id = self._gmail.ensure_label(
+                            secondary_label,
+                            visible=True,
+                            create=True,
+                        )
+                        label_ids[secondary_label] = secondary_id
+                    ids.insert(0, secondary_id)
                 self._operation_guard()
                 self._gmail.add_labels(outcome.message_id, ids)
                 if proposed_label:
@@ -230,6 +269,7 @@ class UniversalClassificationAgent:
                         if dry_run
                         else "marked_processed_without_destination"
                     )
+                secondary_label = _miami_dade_label(proposed_label, message)
 
                 should_process = (
                     decision.label is None
@@ -240,6 +280,16 @@ class UniversalClassificationAgent:
                     ids = [processed_id]
                     if proposed_label:
                         ids.insert(0, label_ids[proposed_label])
+                    if secondary_label:
+                        secondary_id = label_ids.get(secondary_label)
+                        if secondary_id is None:
+                            secondary_id = self._gmail.ensure_label(
+                                secondary_label,
+                                visible=True,
+                                create=True,
+                            )
+                            label_ids[secondary_label] = secondary_id
+                        ids.insert(0, secondary_id)
                     self._operation_guard()
                     self._gmail.add_labels(message.message_id, ids)
                     if proposed_label:
@@ -258,6 +308,7 @@ class UniversalClassificationAgent:
                         action=action,
                         reason=decision.reason,
                         evidence=tuple(decision.evidence),
+                        secondary_label=_miami_dade_label(proposed_label, message),
                     )
                 )
             except ProviderClassificationError:
