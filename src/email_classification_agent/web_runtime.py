@@ -131,6 +131,28 @@ class WebRuntime:
             model=self.settings.openai_model,
         )
 
+    def _classification_failure_message(self, exc: Exception) -> str:
+        status_code = getattr(exc, "status_code", None)
+        if status_code == 404:
+            LOGGER.error(
+                "OpenAI model unavailable model=%s status=%s",
+                self.settings.openai_model,
+                status_code,
+            )
+            return (
+                "The configured AI model is unavailable. Update OPENAI_MODEL to a supported "
+                "model, then run the preview again."
+            )
+        LOGGER.error(
+            "Classification provider failure provider=OpenAI model=%s error_type=%s",
+            self.settings.openai_model,
+            type(exc).__name__,
+        )
+        return (
+            "The AI classification service could not complete this run. Check the OpenAI "
+            "configuration and try again."
+        )
+
     def google_client_id(self) -> str:
         return str(self.client_config["web"]["client_id"])
 
@@ -452,10 +474,7 @@ class WebRuntime:
                 running.run_id,
                 type(exc).__name__,
             )
-            message = (
-                "The classification worker could not complete this run. "
-                "Try again or reconnect Gmail."
-            )
+            message = self._classification_failure_message(exc)
             if self.queue is not None and running.attempts < 3:
                 retry = replace(
                     running,

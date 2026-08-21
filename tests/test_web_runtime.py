@@ -87,6 +87,29 @@ def test_oauth_identity_is_bound_to_gmail_profile_and_stable_subject() -> None:
     assert store.get_user("google-sub-123") == user
 
 
+def test_new_google_account_can_connect_without_mailbox_allowlist() -> None:
+    key = Fernet.generate_key()
+    store = InMemoryMultiTenantStore()
+    runtime = WebRuntime(
+        _settings(key),
+        store=store,
+        cipher=FernetTokenCipher(key),
+        oauth=_OAuth(),
+        identity_verifier=lambda token, audience: {
+            "sub": "client-sub",
+            "email": "maurice@argifamily.com",
+            "email_verified": True,
+        },
+        gmail_factory=lambda credentials: _Gmail("maurice@argifamily.com"),
+        classifier_factory=lambda: None,
+    )
+
+    user = runtime.authorize_user(_credentials())
+
+    assert user.email == "maurice@argifamily.com"
+    assert user.user_id == "client-sub"
+
+
 def test_existing_session_cannot_connect_a_different_google_subject() -> None:
     key = Fernet.generate_key()
     store = InMemoryMultiTenantStore()
@@ -174,3 +197,21 @@ def test_connection_rejects_unexpected_inherited_google_scope() -> None:
 
     with pytest.raises(RuntimeError, match="unexpected OAuth scope"):
         runtime.authorize_user(credentials)
+
+
+def test_openai_404_failure_explains_model_configuration() -> None:
+    key = Fernet.generate_key()
+    runtime = WebRuntime(
+        _settings(key),
+        store=InMemoryMultiTenantStore(),
+        cipher=FernetTokenCipher(key),
+        oauth=_OAuth(),
+        classifier_factory=lambda: None,
+    )
+
+    class MissingModelError(Exception):
+        status_code = 404
+
+    message = runtime._classification_failure_message(MissingModelError())
+
+    assert "OPENAI_MODEL" in message
