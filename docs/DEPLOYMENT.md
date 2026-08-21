@@ -1,4 +1,8 @@
-# Activation Runbook
+# Legacy Single-Mailbox Activation Runbook
+
+This document applies only to `template.yaml` and the fixed Wholesale CLI. For the universal
+multi-user website, do not create a shared Gmail authorized-user token file; use
+[`WEB_DEPLOYMENT.md`](WEB_DEPLOYMENT.md).
 
 ## Preflight checklist
 

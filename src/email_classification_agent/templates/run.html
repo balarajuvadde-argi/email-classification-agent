@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Run {{ run.run_id[-8:] }} — Inbox Pilot{% endblock %}
+{% block content %}
+<section class="page-heading">
+  <div><p class="eyebrow">Classification run</p><h1>{{ run.mode | title }} · {{ run.run_id[-8:] }}</h1></div>
+  <span class="run-status status-{{ run.status }}">{{ run.status | replace('_', ' ') }}</span>
+</section>
+{% if run.status in ['queued', 'running', 'retry'] %}
+<section class="card centered-card"><div class="spinner" aria-hidden="true"></div><h2>Your {{ 'reviewed label plan' if run.mode == 'apply' else 'classification run' }} is processing</h2><p>Refresh this page in a moment. Email bodies are not written to the run history.</p><a class="secondary button-link" href="/runs/{{ run.run_id }}">Refresh status</a></section>
+{% elif run.error %}
+<section class="card"><h2>Run could not be completed</h2><p>{{ run.error }}</p>{% if run.mode == 'apply' %}<p>Some idempotent label additions may already have completed. Review Gmail before running a new preview.</p>{% else %}<p>No reviewed destination-label plan was applied.</p>{% endif %}</section>
+{% elif report %}
+<section class="metric-grid">
+  <div><span>{{ report.scanned }}</span><small>Scanned</small></div>
+  <div><span>{{ report.labeled if run.mode == 'apply' else report.proposed }}</span><small>{{ 'Labels applied' if run.mode == 'apply' else 'Proposed labels' }}</small></div>
+  <div><span>{{ report.low_confidence }}</span><small>Below threshold</small></div>
+  <div><span>{{ report.failed }}</span><small>Errors</small></div>
+</section>
+<section class="card runs-card">
+  <div class="card-heading">
+    <div><p class="eyebrow">Review before apply</p><h2>Message decisions</h2></div>
+    {% if run.plan_id %}
+    <form method="post" action="/runs/{{ run.run_id }}/apply">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="primary" type="submit">Apply this reviewed plan</button>
+    </form>
+    {% endif %}
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Email</th><th>Proposed label</th><th>Confidence</th><th>Reason</th></tr></thead>
+      <tbody>
+      {% for outcome in report.outcomes %}
+        <tr>
+          <td><strong>{{ outcome.subject or '(no subject)' }}</strong><small class="cell-subtext">{{ outcome.sender }}</small></td>
+          <td>{% if outcome.proposed_label %}<span class="label-chip">{{ outcome.proposed_label }}</span>{% else %}<span class="muted">No label</span>{% endif %}</td>
+          <td>{{ '%.0f' | format(outcome.confidence * 100) }}%</td>
+          <td>{{ outcome.reason }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if run.mode == 'preview' %}<p class="microcopy">Preview plans expire after {{ plan_minutes }} minutes and can be applied only once. Applying queues the shown destination labels and a hidden processed marker; it removes nothing.</p>{% else %}<p class="microcopy">The worker only added the reviewed destination labels and hidden processed marker. It removed nothing.</p>{% endif %}
+</section>
+{% endif %}
+<p>
+  {% if run.status == 'completed' and run.mode in ['preview', 'eml_test'] %}
+  <form method="post" action="/runs/preview" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button class="secondary" type="submit">Run saved policy again</button>
+  </form>
+  {% endif %}
+  <a href="/dashboard">← Back to dashboard</a>
+</p>
+{% endblock %}

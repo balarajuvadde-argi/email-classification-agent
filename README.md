@@ -1,7 +1,91 @@
-# Email Classification Agent
+# Universal Email Classification Agent
 
-**Package version:** 2.0.0  
-**Policy version:** `2026-08-20-v2`
+**Package version:** 3.0.0
+
+This repository now contains two deliberately separate products:
+
+1. **Universal multi-user web application** — each user connects their own Gmail account,
+   supplies their own prompt, allowed labels, Gmail search query, confidence threshold, and
+   run size, then previews or schedules classification. Deploy this with
+   [`template-web.yaml`](template-web.yaml) and follow
+   [`docs/WEB_DEPLOYMENT.md`](docs/WEB_DEPLOYMENT.md).
+2. **Legacy single-mailbox Wholesale CLI** — the original Maurice/Wholesale policy remains
+   available for local and scheduled use through `email-classifier` and `template.yaml`.
+
+Do not mix their credentials. The web application does **not** use, upload, or distribute a
+`gmail_oauth_secret.json` file.
+
+## Universal web behavior
+
+Every connected user controls:
+
+- a plain-language classification policy;
+- an allow-list of 1–12 Gmail user labels;
+- the Gmail Inbox search query;
+- a confidence threshold and a maximum of 10 messages per run;
+- preview, reviewed apply, and optional scheduled operation;
+- a bounded `.eml` preview for testing a single email.
+
+The server-controlled safety boundary is not externalized. It permits only creation and
+addition of allow-listed **user** labels, always sends an empty `removeLabelIds` list, and has
+no archive, delete, trash, send, forward, or label-removal action. Email and thread content are
+untrusted model input and cannot change this action boundary.
+
+## Web credential model
+
+- Create one Google OAuth **Web application** client per environment. Keep its complete JSON
+  in AWS Secrets Manager; it is a server credential, not a download for end users.
+- Store the OpenAI API key in a separate Secrets Manager secret.
+- Each user authorizes through the website. Only that user's refresh grant is retained,
+  encrypted with AWS KMS using a user-specific encryption context in DynamoDB.
+- Access tokens, the shared Google client secret, full email bodies, and uploaded `.eml` files
+  are not persistently stored by the application.
+- Returning users use identity-only Google sign-in; the restricted Gmail scope is requested
+  when connecting or reconnecting Gmail, not on every session renewal.
+
+The earlier `client_secret.json` and `gmail_oauth_secret.json` workflow belongs only to the
+legacy single-mailbox CLI. Never place either file in a public image, browser bundle, source
+repository, Lambda environment variable, or downloadable web asset.
+
+## Web quick start
+
+For a local UI smoke test, copy `.env.web.example` to `.env.web`, provide a local Google Web
+OAuth client and development-only encryption key, then run:
+
+```powershell
+.\.venv\Scripts\Activate.ps1
+python -m pip install -e ".[dev]"
+email-classifier-web
+```
+
+Open `http://localhost:8000`. The exact local redirect URI is
+`http://localhost:8000/oauth/google/callback`.
+
+For AWS, Google production verification, the custom domain, secrets, deployment parameters,
+rollback, retention, and launch gates, use the complete
+[web deployment runbook](docs/WEB_DEPLOYMENT.md). The SAM stack provisions the custom-domain
+API, DynamoDB, KMS, FIFO queues, worker, scheduler, bounded quotas, TTLs, logs, and alarms.
+
+For a temporary free-tier demonstration, use the Render blueprint in [`render.yaml`](render.yaml)
+and follow [`docs/MVP_DEPLOYMENT.md`](docs/MVP_DEPLOYMENT.md). This profile is intentionally
+non-durable: the free Render instance can sleep or restart, clearing local users, OAuth grants,
+policies, and history. It is suitable for an MVP demonstration only, not production data.
+
+## Current launch status
+
+The code and deployment template are ready for a controlled staging deployment. It is not
+automatically a verified public Google OAuth app: the operator must supply a company-owned
+domain, ACM certificate, Route 53 zone, real legal/support contacts, AWS/OpenAI secrets, pass
+`sam validate --lint` and a disposable-stack test, publish the Google External consent screen,
+complete restricted-scope verification/security assessment, and obtain company legal approval
+for the Privacy Policy and Terms. The current scheduler/template is sized as a controlled pilot;
+capacity and provider quotas must be raised and load-tested before an unrestricted launch.
+
+---
+
+# Legacy single-mailbox Wholesale agent
+
+**Legacy policy version:** `2026-08-20-v2`
 
 A requirement-driven Gmail agent for existing and new inbox mail. It keeps approved listing-platform mail in the main inbox and labels non-approved property-sales messages as **Wholesale**.
 

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 
-class Category(str, Enum):
+class Category(StrEnum):
     WHOLESALE = "WHOLESALE"
     KEEP_IN_INBOX = "KEEP_IN_INBOX"
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import sys
 from dataclasses import replace
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -87,7 +87,7 @@ def main() -> int:
         )
 
     output = {
-        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "generated_at_utc": datetime.now(UTC).isoformat(),
         "policy_version": POLICY_VERSION,
         "sample_count": len(rows),
         "scenario_count": len(rows) * 3,

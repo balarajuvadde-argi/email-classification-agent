@@ -1,4 +1,5 @@
 .env
+.env.web
 .venv/
 __pycache__/
 *.py[cod]
@@ -11,3 +12,5 @@ dist/
 gmail_oauth_secret.json
 verification/*.json
 client_secret.json
+*client_secret*.json
+*oauth_secret*.json

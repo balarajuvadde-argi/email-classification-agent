@@ -1,4 +1,7 @@
-# Security and Privacy Controls
+# Legacy Single-Mailbox Security and Privacy Controls
+
+This document describes the fixed Wholesale CLI. The multi-user web security model and
+production controls are documented in [`WEB_DEPLOYMENT.md`](WEB_DEPLOYMENT.md).
 
 ## Gmail authorization
 
