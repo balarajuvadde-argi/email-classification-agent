@@ -101,6 +101,18 @@ def test_public_url_cannot_use_development_mode() -> None:
         settings.validate()
 
 
+def test_mvp_mode_allows_public_staging_without_aws_services() -> None:
+    settings = replace(
+        _https_local_settings(),
+        environment="staging",
+        mvp_mode=True,
+        app_base_url="https://demo.onrender.com",
+        google_oauth_client_config_json=json.dumps(CLIENT_CONFIG),
+    )
+
+    settings.validate()
+
+
 def test_automatic_quota_must_cover_the_configured_cadence() -> None:
     settings = replace(
         _production_settings(),

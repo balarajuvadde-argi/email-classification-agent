@@ -48,6 +48,7 @@ class WebSettings:
     privacy_effective_date: str = "2026-08-20"
     privacy_notice_version: str = "2026-08-20.1"
     backup_recovery_days: int = 7
+    mvp_mode: bool = False
 
     @property
     def production(self) -> bool:
@@ -136,6 +137,7 @@ class WebSettings:
                 os.getenv("PRIVACY_NOTICE_VERSION") or "2026-08-20.1"
             ).strip(),
             backup_recovery_days=int(os.getenv("BACKUP_RECOVERY_DAYS") or "7"),
+            mvp_mode=(os.getenv("MVP_MODE") or "false").strip().casefold() == "true",
         )
         settings.validate()
         return settings
@@ -156,7 +158,7 @@ class WebSettings:
             raise ValueError("APP_BASE_URL must use HTTPS outside an exact loopback host")
         if not loopback and environment not in {"staging", "production"}:
             raise ValueError("A public APP_BASE_URL requires APP_ENV=staging or production")
-        if self.production:
+        if self.production and not self.mvp_mode:
             if not self.secure_transport:
                 raise ValueError("Production APP_BASE_URL must use HTTPS")
             if not self.table_name:

@@ -66,6 +66,11 @@ rollback, retention, and launch gates, use the complete
 [web deployment runbook](docs/WEB_DEPLOYMENT.md). The SAM stack provisions the custom-domain
 API, DynamoDB, KMS, FIFO queues, worker, scheduler, bounded quotas, TTLs, logs, and alarms.
 
+For a temporary free-tier demonstration, use the Render blueprint in [`render.yaml`](render.yaml)
+and follow [`docs/MVP_DEPLOYMENT.md`](docs/MVP_DEPLOYMENT.md). This profile is intentionally
+non-durable: the free Render instance can sleep or restart, clearing local users, OAuth grants,
+policies, and history. It is suitable for an MVP demonstration only, not production data.
+
 ## Current launch status
 
 The code and deployment template are ready for a controlled staging deployment. It is not

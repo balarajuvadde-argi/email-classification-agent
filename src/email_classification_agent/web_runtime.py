@@ -102,6 +102,8 @@ class WebRuntime:
 
     @staticmethod
     def _build_store(settings: WebSettings) -> MultiTenantStore:
+        if settings.mvp_mode:
+            return InMemoryMultiTenantStore()
         if settings.table_name:
             return DynamoDbMultiTenantStore(
                 settings.table_name,
@@ -113,6 +115,8 @@ class WebRuntime:
 
     @staticmethod
     def _build_cipher(settings: WebSettings) -> TokenCipher:
+        if settings.mvp_mode and settings.local_token_encryption_key:
+            return FernetTokenCipher(settings.local_token_encryption_key)
         if settings.kms_key_id:
             return KmsTokenCipher(settings.kms_key_id, region_name=settings.aws_region)
         if settings.local_token_encryption_key:

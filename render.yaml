@@ -1,0 +1,55 @@
+services:
+  - type: web
+    name: inbox-pilot-mvp
+    runtime: python
+    plan: free
+    buildCommand: pip install -e .
+    startCommand: uvicorn email_classification_agent.web_app:create_app --factory --host 0.0.0.0 --port $PORT --access-log --log-level info
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: MVP_MODE
+        value: 'true'
+      - key: APP_BASE_URL
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_CONFIG_JSON
+        sync: false
+      - key: LOCAL_TOKEN_ENCRYPTION_KEY
+        generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_MODEL
+        value: gpt-5-mini
+      - key: SERVICE_NAME
+        value: Inbox Pilot MVP
+      - key: OPERATOR_NAME
+        sync: false
+      - key: PRIVACY_CONTACT_EMAIL
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false
+      - key: PRIVACY_EFFECTIVE_DATE
+        value: '2026-08-21'
+      - key: PRIVACY_NOTICE_VERSION
+        value: '2026-08-21.1'
+      - key: BACKUP_RECOVERY_DAYS
+        value: '1'
+      - key: SESSION_TTL_SECONDS
+        value: '86400'
+      - key: OAUTH_STATE_TTL_SECONDS
+        value: '600'
+      - key: ACTION_PLAN_TTL_SECONDS
+        value: '900'
+      - key: RUN_TTL_SECONDS
+        value: '86400'
+      - key: AUTOMATIC_INTERVAL_SECONDS
+        value: '900'
+      - key: WORKER_LEASE_SECONDS
+        value: '330'
+      - key: MANUAL_RUNS_PER_DAY
+        value: '10'
+      - key: EML_PREVIEWS_PER_DAY
+        value: '5'
+      - key: AUTOMATIC_RUNS_PER_DAY
+        value: '96'

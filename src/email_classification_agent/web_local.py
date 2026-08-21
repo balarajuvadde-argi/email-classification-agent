@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 
 from cryptography.fernet import Fernet
@@ -7,6 +8,10 @@ from dotenv import load_dotenv
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     load_dotenv(".env.web", override=False)
     load_dotenv(".env", override=False)
     os.environ.setdefault("APP_ENV", "development")
@@ -22,7 +27,7 @@ def main() -> None:
 
     from .web_app import create_app
 
-    uvicorn.run(create_app(), host="127.0.0.1", port=8000, access_log=False)
+    uvicorn.run(create_app(), host="127.0.0.1", port=8000, access_log=True, log_level="info")
 
 
 if __name__ == "__main__":

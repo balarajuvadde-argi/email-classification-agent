@@ -91,11 +91,23 @@ def _error_page(request: Request, message: str, status_code: int = 400) -> HTMLR
     )
 
 
+def _log_operation_failure(operation: str, exc: Exception) -> None:
+    LOGGER.error(
+        "operation_failed operation=%s error_type=%s",
+        operation,
+        type(exc).__name__,
+    )
+
+
 def create_app(
     *,
     settings: WebSettings | None = None,
     runtime: WebRuntime | None = None,
 ) -> FastAPI:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     settings = settings or WebSettings.from_env()
     runtime = runtime or WebRuntime(settings)
     app = FastAPI(
@@ -110,20 +122,44 @@ def create_app(
 
     @app.middleware("http")
     async def security_headers(request: Request, call_next: Any) -> Any:
+        request_id = secrets.token_hex(8)
+        started_at = time.perf_counter()
         configured_host = urlsplit(settings.app_base_url).hostname
         request_host = request.url.hostname
         loopback_hosts = {"localhost", "127.0.0.1", "::1"}
-        if (
-            not settings.production
-            and configured_host in loopback_hosts
-            and request_host in loopback_hosts
-            and request_host != configured_host
-        ):
-            target = f"{settings.app_base_url.rstrip('/')}{request.url.path}"
-            if request.url.query:
-                target += f"?{request.url.query}"
-            return RedirectResponse(target, status_code=307)
-        response = await call_next(request)
+        try:
+            if (
+                not settings.production
+                and configured_host in loopback_hosts
+                and request_host in loopback_hosts
+                and request_host != configured_host
+            ):
+                target = f"{settings.app_base_url.rstrip('/')}{request.url.path}"
+                if request.url.query:
+                    target += f"?{request.url.query}"
+                response = RedirectResponse(target, status_code=307)
+            else:
+                response = await call_next(request)
+        except Exception as exc:  # noqa: BLE001 - log only safe request metadata
+            LOGGER.exception(
+                "request_failed request_id=%s method=%s path=%s error_type=%s",
+                request_id,
+                request.method,
+                request.url.path,
+                type(exc).__name__,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started_at) * 1000
+        log_method = LOGGER.warning if response.status_code >= 400 else LOGGER.info
+        log_method(
+            "request_complete request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        response.headers["X-Request-ID"] = request_id
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; img-src 'self' data:; "
             "form-action 'self' https://accounts.google.com; frame-ancestors 'none'; "
@@ -291,8 +327,9 @@ def create_app(
             else:
                 raise RuntimeError("Unsupported OAuth purpose")
         except Exception as exc:  # noqa: BLE001 - OAuth details must not reach browser output
+            _log_operation_failure("oauth_callback", exc)
             if not settings.production:
-                LOGGER.exception("Local Google OAuth callback failed: %s", exc)
+                LOGGER.exception("Local Google OAuth callback failed")
             return finish(
                 _error_page(
                     request,
@@ -366,7 +403,8 @@ def create_app(
             return _error_page(request, "Accept the current privacy notice to continue.")
         try:
             runtime.accept_current_notice(user)
-        except Exception:  # noqa: BLE001 - storage details stay server-side
+        except Exception as exc:  # noqa: BLE001 - storage details stay server-side
+            _log_operation_failure("accept_consent", exc)
             return _error_page(
                 request,
                 "The privacy notice acceptance could not be saved. Reload and try again.",
@@ -413,6 +451,7 @@ def create_app(
                 policy,
             )
         except (ValidationError, ValueError) as exc:
+            _log_operation_failure("save_policy", exc)
             message = "; ".join(
                 str(item.get("msg") or "Invalid policy")
                 for item in (exc.errors() if isinstance(exc, ValidationError) else [])
@@ -437,7 +476,8 @@ def create_app(
             return _error_page(request, "Security token expired. Reload the dashboard.", 403)
         try:
             run = runtime.new_run(user, mode="preview")
-        except Exception:  # noqa: BLE001 - provider/infrastructure details stay server-side
+        except Exception as exc:  # noqa: BLE001 - provider/infrastructure details stay server-side
+            _log_operation_failure("queue_preview", exc)
             return RedirectResponse(
                 "/dashboard?error=The+preview+could+not+be+queued.+"
                 "Check+for+an+active+run+and+try+again.",
@@ -492,7 +532,8 @@ def create_app(
             return _error_page(request, "This run has no active preview plan.", 404)
         try:
             apply_job = runtime.new_apply_run(user, run.plan_id)
-        except Exception:  # noqa: BLE001 - no token or provider details are rendered
+        except Exception as exc:  # noqa: BLE001 - no token or provider details are rendered
+            _log_operation_failure("queue_apply", exc)
             return _error_page(
                 request,
                 "The reviewed plan could not be queued. It may have expired, changed, or "
@@ -527,7 +568,8 @@ def create_app(
         data = await message.read(2_000_001)
         try:
             result = runtime.classify_uploaded_eml(user, data)
-        except Exception:  # noqa: BLE001 - no email or provider details are rendered
+        except Exception as exc:  # noqa: BLE001 - no email or provider details are rendered
+            _log_operation_failure("classify_eml", exc)
             return _error_page(
                 request,
                 "The uploaded email could not be classified. Check the policy and file, then "

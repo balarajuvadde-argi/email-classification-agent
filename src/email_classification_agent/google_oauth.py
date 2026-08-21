@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import secrets
 from typing import Any
 from urllib.parse import urlsplit
@@ -7,6 +8,8 @@ from urllib.parse import urlsplit
 from google_auth_oauthlib.flow import Flow
 
 from .gmail_client import GMAIL_MODIFY_SCOPE
+
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
 GOOGLE_IDENTITY_SCOPES = ("openid", "email")
 
