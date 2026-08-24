@@ -11,6 +11,7 @@ It supports:
 - `.eml` tests
 - run and instruction history while the instance is alive
 - deterministic `Wholesaler/Miami-Dade` ZIP routing for the configured wholesale label
+- Miami-Dade Property Appraiser address and folio verification when enabled
 
 The web flow is multi-user. Any Google account can create its own connection when that
 account's owner explicitly signs in and grants access. There is no application allow-list for
@@ -84,6 +85,7 @@ In the service's Environment page, set these values:
 APP_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
 APP_ENV=staging
 MVP_MODE=true
+PROPERTY_LOOKUP_ENABLED=true
 OPENAI_API_KEY=your OpenAI project key
 OPENAI_MODEL=gpt-4o-mini
 GOOGLE_OAUTH_CLIENT_CONFIG_JSON=<complete Google Web client JSON>
@@ -114,6 +116,12 @@ OPENAI_API_KEY_SECRET_ID
 ```
 
 Those variables select the AWS production services.
+
+`PROPERTY_LOOKUP_ENABLED=true` makes the worker call the Miami-Dade Property Appraiser's
+public address and folio search service for wholesale messages. The service is queried only
+for extracted property addresses, at a bounded timeout. A failed or ambiguous lookup is
+reported as unverified and cannot create a qualification label. Review the portal's terms,
+rate limits, and acceptable-use requirements before public use.
 
 ## 5. Finish Google redirect configuration
 

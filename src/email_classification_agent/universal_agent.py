@@ -7,6 +7,7 @@ from collections.abc import Callable
 from .email_parser import parse_gmail_message
 from .gmail_client import GmailClient
 from .models import ParsedEmail
+from .property_appraiser import MiamiDadePropertyClient
 from .universal_classifier import UniversalEmailClassifier
 from .universal_models import (
     ActionPlan,
@@ -58,6 +59,7 @@ class UniversalClassificationAgent:
         max_body_chars: int = 20_000,
         max_context_chars: int = 18_000,
         operation_guard: Callable[[], None] | None = None,
+        property_client: MiamiDadePropertyClient | None = None,
     ) -> None:
         if not expected_email.strip():
             raise ValueError("expected_email is mandatory for tenant isolation")
@@ -68,6 +70,7 @@ class UniversalClassificationAgent:
         self._max_body_chars = max_body_chars
         self._max_context_chars = max_context_chars
         self._operation_guard = operation_guard or (lambda: None)
+        self._property_client = property_client
 
     def preview(self, policy: ClassificationPolicy) -> UniversalReport:
         return self._run(policy, dry_run=True)
@@ -130,9 +133,11 @@ class UniversalClassificationAgent:
                     )
                     continue
                 proposed_label = exact_label
-                if secondary_label and secondary_label.casefold() != (
-                    f"{proposed_label}/miami-dade"
-                ).casefold():
+                valid_secondary_labels = {
+                    f"{proposed_label}/miami-dade".casefold(),
+                    f"{proposed_label}/qualified".casefold(),
+                }
+                if secondary_label and secondary_label.casefold() not in valid_secondary_labels:
                     secondary_label = None
             elif outcome.action != "would_mark_processed_without_destination":
                 report.failed += 1
@@ -273,6 +278,17 @@ class UniversalClassificationAgent:
                         else "marked_processed_without_destination"
                     )
                 secondary_label = _miami_dade_label(proposed_label, message)
+                property_records = (
+                    tuple(record.as_dict() for record in self._property_client.lookup_email(message))
+                    if (
+                        self._property_client
+                        and proposed_label
+                        and proposed_label.casefold() in {"wholesale", "wholesaler"}
+                    )
+                    else ()
+                )
+                if any(record["qualifies"] for record in property_records):
+                    secondary_label = f"{proposed_label}/Qualified"
 
                 should_process = (
                     decision.label is None
@@ -312,6 +328,7 @@ class UniversalClassificationAgent:
                         reason=decision.reason,
                         evidence=tuple(decision.evidence),
                         secondary_label=secondary_label,
+                        property_records=property_records,
                     )
                 )
             except ProviderClassificationError:

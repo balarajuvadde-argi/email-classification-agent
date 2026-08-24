@@ -22,6 +22,7 @@ from .multitenant_store import (
     InMemoryMultiTenantStore,
     MultiTenantStore,
 )
+from .property_appraiser import MiamiDadePropertyClient
 from .token_security import (
     FernetTokenCipher,
     KmsTokenCipher,
@@ -99,6 +100,9 @@ class WebRuntime:
         self._identity_verifier = identity_verifier
         self._gmail_factory = gmail_factory
         self._classifier_factory = classifier_factory or self._default_classifier
+        self._property_client = (
+            MiamiDadePropertyClient() if settings.property_lookup_enabled else None
+        )
 
     @staticmethod
     def _build_store(settings: WebSettings) -> MultiTenantStore:
@@ -406,6 +410,7 @@ class WebRuntime:
                 self._classifier_factory(),
                 expected_email=user.email,
                 operation_guard=operation_guard,
+                property_client=self._property_client,
             )
             consumed_plan_id = ""
             if running.mode == "preview":
@@ -533,6 +538,7 @@ class WebRuntime:
                 user,
                 require_automatic=False,
             ),
+            property_client=self._property_client,
         )
         report = agent.apply_plan(user.policy, plan).as_dict()
         self.store.consume_plan(plan_id)

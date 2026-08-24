@@ -57,6 +57,21 @@ Any Google account may connect its own mailbox after its owner completes Google 
 Do not access a client's mailbox without that client's explicit authorization; do not ask for
 their Google password or OAuth token.
 
+The acquisition workflow can verify wholesale property addresses through the Miami-Dade
+Property Appraiser public search service. Its initial qualification rule is intentionally
+strict: the portal record must have a folio beginning with `30`, be a single-family record,
+not be in an excluded municipality, indicate multiple lots in the full legal description,
+and have an email asking price at or below $275,000 when a price is available. Verification
+results are shown in the run report; an incomplete portal lookup never qualifies or writes a
+qualification label.
+
+When `PROPERTY_LOOKUP_ENABLED=true`, the worker searches the Miami-Dade Property Appraiser
+public service for each extracted property address in a wholesale email. It checks the folio
+prefix, excluded municipality, land use, email asking price, and full legal description. The
+initial qualification label is created only when the website record is verified and the
+configured acquisition criteria pass; failed lookups remain unverified and are never treated
+as qualified.
+
 ## Web quick start
 
 For a local UI smoke test, copy `.env.web.example` to `.env.web`, provide a local Google Web

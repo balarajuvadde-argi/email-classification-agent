@@ -135,6 +135,7 @@ class UniversalOutcome:
     reason: str
     evidence: tuple[str, ...] = ()
     secondary_label: str | None = None
+    property_records: tuple[dict[str, Any], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         value = asdict(self)

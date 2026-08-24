@@ -1429,6 +1429,7 @@ class DynamoDbMultiTenantStore:
                 sender=str(value.get("sender") or ""),
                 proposed_label=value.get("proposed_label"),
                 secondary_label=value.get("secondary_label"),
+                property_records=tuple(value.get("property_records") or []),
                 confidence=float(value.get("confidence") or 0.0),
                 action=str(value.get("action") or ""),
                 reason=str(value.get("reason") or ""),

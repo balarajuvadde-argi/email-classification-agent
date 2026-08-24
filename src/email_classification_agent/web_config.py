@@ -49,6 +49,7 @@ class WebSettings:
     privacy_notice_version: str = "2026-08-20.1"
     backup_recovery_days: int = 7
     mvp_mode: bool = False
+    property_lookup_enabled: bool = False
 
     @property
     def production(self) -> bool:
@@ -138,6 +139,9 @@ class WebSettings:
             ).strip(),
             backup_recovery_days=int(os.getenv("BACKUP_RECOVERY_DAYS") or "7"),
             mvp_mode=(os.getenv("MVP_MODE") or "false").strip().casefold() == "true",
+            property_lookup_enabled=(
+                os.getenv("PROPERTY_LOOKUP_ENABLED") or "false"
+            ).strip().casefold() == "true",
         )
         settings.validate()
         return settings

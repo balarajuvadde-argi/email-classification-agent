@@ -21,6 +21,8 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
+      - key: PROPERTY_LOOKUP_ENABLED
+        value: 'true'
       - key: SERVICE_NAME
         value: Inbox Pilot MVP
       - key: OPERATOR_NAME
