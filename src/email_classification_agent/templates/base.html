@@ -7,7 +7,89 @@
   <title>{% block title %}{{ service_name }}{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css">
 </head>
-<body>
+<body class="{% if user %}app-body{% else %}marketing-body{% endif %}">
+  {% if user %}
+  <div class="app-shell">
+    <aside class="app-sidebar" aria-label="Inbox Pilot navigation">
+      <div class="sidebar-top">
+        <a class="app-brand" href="/dashboard" aria-label="{{ service_name }} dashboard">
+          <span class="app-brand-mark">IP</span>
+          <span class="app-brand-copy">
+            <strong>{{ service_name }}</strong>
+            <small>Email agent</small>
+          </span>
+        </a>
+
+        <a class="new-session-button" href="/dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span>New classification</span>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Workspace">
+        <a class="sidebar-link" href="/dashboard">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+          <span>Workspace</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-history">
+        <div class="sidebar-section-title">
+          <span>Classification history</span>
+          {% if runs is defined and runs %}<span class="history-count">{{ runs|length }}</span>{% endif %}
+        </div>
+        {% if runs is defined and runs %}
+          <div class="history-list">
+            {% for item in runs[:12] %}
+            <a class="history-item" href="/runs/{{ item.run_id }}">
+              <span class="history-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 12h7M7 17h4"/><rect x="4" y="3" width="16" height="18" rx="3"/></svg>
+              </span>
+              <span class="history-copy">
+                <strong>{{ item.mode | replace('_', ' ') | title }}</strong>
+                <small>{{ item.created_at }}</small>
+              </span>
+              <span class="history-dot status-dot-{{ item.status }}" title="{{ item.status }}"></span>
+            </a>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="sidebar-empty">Your recent runs will appear here.</div>
+        {% endif %}
+      </div>
+
+      <div class="sidebar-bottom">
+        <div class="connected-account">
+          <span class="account-avatar">{{ user.email[0] | upper }}</span>
+          <span class="account-copy">
+            <strong>{{ user.email }}</strong>
+            <small><span class="online-dot"></span> Gmail connected</small>
+          </span>
+        </div>
+        <div class="sidebar-utility-links">
+          <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
+          <form method="post" action="/logout" class="inline-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button class="link-button" type="submit">Sign out</button>
+          </form>
+        </div>
+      </div>
+    </aside>
+
+    <main class="app-main">
+      <header class="mobile-app-header">
+        <a class="app-brand" href="/dashboard"><span class="app-brand-mark">IP</span><strong>{{ service_name }}</strong></a>
+        <span class="status-pill compact">Connected</span>
+      </header>
+      <div class="app-content">
+        {% if notice %}<div class="notice" role="status">{{ notice }}</div>{% endif %}
+        {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  {% else %}
   <header class="site-header">
     <a class="brand" href="/" aria-label="{{ service_name }} home">
       <span class="brand-mark">IP</span>
@@ -16,22 +98,17 @@
     <nav aria-label="Primary navigation">
       <a href="/privacy">Privacy</a>
       <a href="/terms">Terms</a>
-      {% if user %}
-      <form method="post" action="/logout" class="inline-form">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="link-button" type="submit">Sign out</button>
-      </form>
-      {% endif %}
     </nav>
   </header>
-  <main>
+  <main class="marketing-main">
     {% if notice %}<div class="notice" role="status">{{ notice }}</div>{% endif %}
     {% if error %}<div class="error" role="alert">{{ error }}</div>{% endif %}
-    {% block content %}{% endblock %}
+    {{ self.content() }}
   </main>
-  <footer>
+  <footer class="marketing-footer">
     <span>{{ service_name }}</span>
-    <span>Label-only Gmail classification. No archive, delete, send, or label removal.</span>
+    <span>Controlled Gmail classification with review-first safety.</span>
   </footer>
+  {% endif %}
 </body>
 </html>

@@ -116,6 +116,30 @@ def test_miami_dade_zip_adds_derived_sublabel_on_preview() -> None:
     assert gmail.writes == []
 
 
+def test_one_matching_zip_routes_email_with_other_non_miami_zips() -> None:
+    gmail = _Gmail()
+    resource = _wholesale_resource()
+    resource["payload"]["headers"][1]["value"] = (
+        "Wholesale portfolio: Lake Worth 33460, Miami-Dade 33034, Jacksonville 32218"
+    )
+    gmail.get_message = lambda message_id: resource
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesaler",
+                confidence=0.96,
+                reason="Property portfolio",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+    ).preview(_wholesale_policy())
+
+    assert report.outcomes[0].secondary_label == "Wholesaler/Miami-Dade"
+
+
 def test_miami_dade_sublabel_is_added_during_apply() -> None:
     gmail = _Gmail()
     gmail.get_message = _wholesale_resource

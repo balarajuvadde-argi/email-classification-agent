@@ -1,143 +1,217 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — {{ service_name }}{% endblock %}
+{% block title %}Workspace — {{ service_name }}{% endblock %}
 {% block content %}
-<section class="page-heading">
+<section class="workspace-header">
   <div>
-    <p class="eyebrow">Connected mailbox</p>
-    <h1>{{ user.email }}</h1>
+    <p class="eyebrow">AI email workspace</p>
+    <h1>What should I do with your inbox?</h1>
+    <p class="workspace-subtitle">Describe your classification policy in plain language, preview the result, and only then enable automation.</p>
   </div>
-  <span class="status-pill">Connected</span>
+  <div class="header-account-pill">
+    <span class="online-dot"></span>
+    <span>{{ user.email }}</span>
+  </div>
 </section>
 
 {% if not consent_current %}
-<section class="card consent-card" role="alert">
-  <p class="eyebrow">Action required</p>
-  <h2>Review the updated privacy notice</h2>
-  <p>Mailbox reads, model processing, and scheduled classification are paused until you accept privacy notice version {{ privacy_notice_version }}.</p>
-  <form method="post" action="/consent" class="stack-form compact">
+<section class="alert-card" role="alert">
+  <div class="alert-icon">!</div>
+  <div>
+    <strong>Review the updated privacy notice</strong>
+    <p>Mailbox reads, model processing, and scheduled classification are paused until you accept privacy notice version {{ privacy_notice_version }}.</p>
+  </div>
+  <form method="post" action="/consent" class="alert-actions">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <label class="consent-row"><input type="checkbox" name="consent" value="yes" required><span>I have reviewed and accept the current <a href="/privacy">Privacy Policy</a>.</span></label>
-    <button class="primary" type="submit">Accept and resume</button>
+    <label class="consent-inline"><input type="checkbox" name="consent" value="yes" required><span>I accept the <a href="/privacy">Privacy Policy</a>.</span></label>
+    <button class="primary small-button" type="submit">Accept</button>
   </form>
 </section>
 {% endif %}
 
-<div class="dashboard-grid">
-  <section class="card policy-card">
-    <div class="card-heading">
-      <div><p class="eyebrow">Classification policy</p><h2>Tell the agent how to organize mail</h2><p class="microcopy">{% if policy %}Saved and ready to reuse. Preview runs keep this policy unchanged.{% else %}Save this once, then reuse it for as many previews as needed.{% endif %}</p></div>
-      {% if policy %}<span class="hash" title="Policy revision">{{ policy.policy_hash[:10] }}</span>{% endif %}
+<section class="composer-card">
+  <div class="composer-topline">
+    <div>
+      <span class="composer-kicker">Classification instructions</span>
+      {% if policy %}<span class="saved-badge">Saved policy</span>{% endif %}
     </div>
-    <form method="post" action="/settings" class="stack-form">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <label>
-        <span>Classification instructions</span>
-        <textarea name="prompt" rows="9" maxlength="8000" required placeholder="Example: Label invoices and payment receipts as Finance. Label newsletters and product announcements as News. Leave personal correspondence unlabeled.">{{ policy.prompt if policy else '' }}</textarea>
-        <small>Describe what each label means. Email content cannot override these instructions.</small>
-      </label>
-      <label>
-        <span>Allowed Gmail labels</span>
-        <textarea name="labels" rows="4" maxlength="1200" required placeholder="Finance&#10;News&#10;Client Follow-up">{{ policy.labels | join('\n') if policy else '' }}</textarea>
-        <small>One label per line, up to 12. Use Wholesaler or Wholesale for Miami-Dade sublabel routing.</small>
-      </label>
-      <div class="form-grid">
+    {% if policy %}<span class="policy-id" title="Policy revision">rev {{ policy.policy_hash[:8] }}</span>{% endif %}
+  </div>
+
+  <form method="post" action="/settings" class="policy-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <label class="prompt-field">
+      <span class="sr-only">Classification instructions</span>
+      <textarea name="prompt" rows="10" maxlength="8000" required placeholder="Tell Inbox Pilot how to classify your mail. Example: Move non-approved real estate deal emails to Wholesale, keep approved listing-platform messages in the Inbox, and leave unrelated personal correspondence alone.">{{ policy.prompt if policy else '' }}</textarea>
+      <small>Write the rule naturally. Email content cannot override your saved policy.</small>
+    </label>
+
+    <details class="advanced-panel" {% if not policy %}open{% endif %}>
+      <summary>
+        <span>
+          <strong>Policy settings</strong>
+          <small>Labels, inbox scope, confidence and scheduling</small>
+        </span>
+        <span class="chevron">⌄</span>
+      </summary>
+      <div class="advanced-content">
         <label>
-          <span>Inbox selection query</span>
-          <input name="gmail_query" maxlength="500" required value="{{ policy.gmail_query if policy else 'in:inbox newer_than:30d -in:spam -in:trash' }}">
-          <small>Uses Gmail search syntax. Spam and Trash are always excluded.</small>
+          <span>Allowed Gmail labels</span>
+          <textarea name="labels" rows="4" maxlength="1200" required placeholder="Wholesale&#10;Finance&#10;Client Follow-up">{{ policy.labels | join('\n') if policy else '' }}</textarea>
+          <small>One label per line, up to 12. These are the only destination labels the agent may use.</small>
         </label>
-        <label>
-          <span>Messages per run</span>
-          <input name="max_messages" type="number" min="1" max="500" value="{{ policy.max_messages_per_run if policy else 10 }}">
-        </label>
-        <label>
-          <span>Minimum confidence</span>
-          <input name="confidence_threshold" type="number" min="0.5" max="1" step="0.01" value="{{ policy.confidence_threshold if policy else 0.85 }}">
+
+        <div class="settings-grid">
+          <label class="wide-setting">
+            <span>Inbox selection query</span>
+            <input name="gmail_query" maxlength="500" required value="{{ policy.gmail_query if policy else 'in:inbox newer_than:30d -in:spam -in:trash' }}">
+            <small>Uses Gmail search syntax. Spam and Trash are always excluded.</small>
+          </label>
+          <label>
+            <span>Messages per run</span>
+            <input name="max_messages" type="number" min="1" max="500" value="{{ policy.max_messages_per_run if policy else 10 }}">
+          </label>
+          <label>
+            <span>Minimum confidence</span>
+            <input name="confidence_threshold" type="number" min="0.5" max="1" step="0.01" value="{{ policy.confidence_threshold if policy else 0.85 }}">
+          </label>
+        </div>
+
+        <label class="automation-row">
+          <input name="automatic_enabled" type="checkbox" value="yes" {% if policy and policy.automatic_enabled %}checked{% endif %} {% if not consent_current or not policy or user.last_previewed_activation_hash != policy.activation_hash %}disabled{% endif %}>
+          <span class="automation-copy">
+            <strong>Enable scheduled classification</strong>
+            <small>A successful preview of this exact policy is required first. Low-confidence messages are left untouched.</small>
+          </span>
+          <span class="switch-visual" aria-hidden="true"></span>
         </label>
       </div>
-      <label class="toggle-row">
-        <input name="automatic_enabled" type="checkbox" value="yes" {% if policy and policy.automatic_enabled %}checked{% endif %} {% if not consent_current or not policy or user.last_previewed_activation_hash != policy.activation_hash %}disabled{% endif %}>
-        <span><strong>Enable scheduled classification</strong><small>A successful preview of this exact policy is required first. Scheduled mode adds allow-listed labels automatically. Below-threshold messages receive only a hidden processed marker so they are not repeatedly sent for classification.</small></span>
-      </label>
-      <button class="primary" type="submit" {% if not consent_current %}disabled{% endif %}>{{ 'Update saved policy' if policy else 'Save policy' }}</button>
+    </details>
+
+    <div class="composer-actions">
+      <div class="safe-note">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Only approved label actions are allowed</span>
+      </div>
+      <button class="secondary" type="submit" {% if not consent_current %}disabled{% endif %}>{{ 'Update policy' if policy else 'Save policy' }}</button>
+      <button class="primary" type="submit" {% if not consent_current %}disabled{% endif %}>{{ 'Save changes' if policy else 'Save policy' }}</button>
+    </div>
+  </form>
+</section>
+
+<div class="quick-action-grid">
+  <section class="quick-card primary-quick-card">
+    <div class="quick-icon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+    </div>
+    <div class="quick-copy">
+      <p class="eyebrow">Safe rollout</p>
+      <h2>Preview Gmail</h2>
+      <p>Run your saved policy against Gmail without creating or applying destination labels.</p>
+    </div>
+    <form method="post" action="/runs/preview">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="primary full" type="submit" {% if not consent_current or not policy %}disabled{% endif %}>Start read-only preview</button>
     </form>
   </section>
 
-  <aside class="side-stack">
-    <section class="card action-card">
-      <p class="eyebrow">Safe rollout</p>
-      <h2>Preview Gmail</h2>
-      <p>Queues a classification run without creating or applying Gmail labels.</p>
-      <form method="post" action="/runs/preview">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button class="primary full" type="submit" {% if not consent_current or not policy %}disabled{% endif %}>Start read-only preview</button>
-      </form>
-    </section>
-    <section class="card action-card">
+  <section class="quick-card">
+    <div class="quick-icon muted-icon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M8 8l4-4 4 4"/><path d="M5 15v4h14v-4"/></svg>
+    </div>
+    <div class="quick-copy">
       <p class="eyebrow">Single-message test</p>
       <h2>Test an .eml file</h2>
-      <p>Uploads one email for a classification preview. This application does not persistently store the file; bounded content is sent to {{ ai_provider_name }} under the Privacy Policy.</p>
-      <form method="post" action="/preview/eml" enctype="multipart/form-data" class="stack-form compact">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="file" name="message" accept=".eml,message/rfc822" required>
-        <button class="secondary full" type="submit" {% if not consent_current or not policy %}disabled{% endif %}>Classify file</button>
-      </form>
-    </section>
-    <section class="card safety-card">
-      <p class="eyebrow">Gmail safety contract</p>
-      <ul class="check-list">
-        <li>Add approved labels only</li>
-        <li>Preserve INBOX</li>
-        <li>No archive or delete</li>
-        <li>No send or forward</li>
-        <li>No label removal</li>
-      </ul>
-    </section>
-  </aside>
+      <p>Try one email before running against the connected mailbox. The uploaded file is not persistently stored.</p>
+    </div>
+    <form method="post" action="/preview/eml" enctype="multipart/form-data" class="upload-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input class="file-input" type="file" name="message" accept=".eml,message/rfc822" required>
+      <button class="secondary full" type="submit" {% if not consent_current or not policy %}disabled{% endif %}>Classify file</button>
+    </form>
+  </section>
+
+  <section class="quick-card safety-quick-card">
+    <div class="quick-icon muted-icon">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6l7-3z"/></svg>
+    </div>
+    <div class="quick-copy">
+      <p class="eyebrow">Safety contract</p>
+      <h2>Protected Gmail actions</h2>
+    </div>
+    <ul class="safety-list">
+      <li>Add approved labels only</li>
+      <li>Preserve Inbox</li>
+      <li>No delete, send, forward or label removal</li>
+    </ul>
+  </section>
 </div>
 
-<section class="card runs-card">
-  <div class="card-heading"><div><p class="eyebrow">Recent activity</p><h2>Classification runs</h2></div></div>
-  {% if runs %}
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Run</th><th>Mode</th><th>Status</th><th>Created</th><th></th></tr></thead>
-      <tbody>
-      {% for run in runs %}
-        <tr><td class="mono">{{ run.run_id[-8:] }}</td><td>{{ run.mode | replace('_', ' ') }}</td><td><span class="run-status status-{{ run.status }}">{{ run.status | replace('_', ' ') }}</span></td><td>{{ run.created_at }}</td><td><a href="/runs/{{ run.run_id }}">View</a></td></tr>
-      {% endfor %}
-      </tbody>
-    </table>
+<section class="activity-section">
+  <div class="section-heading-row">
+    <div>
+      <p class="eyebrow">Recent activity</p>
+      <h2>Classification runs</h2>
+    </div>
+    {% if runs %}<span class="section-count">{{ runs|length }} recent</span>{% endif %}
   </div>
-  {% else %}<p class="empty-state">No runs yet. Save a policy, then start with a preview.</p>{% endif %}
+
+  {% if runs %}
+  <div class="activity-list">
+    {% for run in runs %}
+    <a class="activity-row" href="/runs/{{ run.run_id }}">
+      <span class="activity-icon">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 12h7M7 17h4"/><rect x="4" y="3" width="16" height="18" rx="3"/></svg>
+      </span>
+      <span class="activity-main">
+        <strong>{{ run.mode | replace('_', ' ') | title }}</strong>
+        <small>Run {{ run.run_id[-8:] }} · {{ run.created_at }}</small>
+      </span>
+      <span class="run-status status-{{ run.status }}">{{ run.status | replace('_', ' ') }}</span>
+      <span class="row-arrow">›</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty-activity">
+    <span class="empty-icon">✦</span>
+    <strong>No classification runs yet</strong>
+    <p>Save a policy and start with a read-only preview. Every run will appear here with its time and status.</p>
+  </div>
+  {% endif %}
 </section>
 
-<section class="card runs-card">
-  <div class="card-heading"><div><p class="eyebrow">Policy audit</p><h2>Instruction history</h2></div></div>
-  {% if policy_revisions %}
-  <div class="table-wrap">
-    <table>
-      <thead><tr><th>Saved</th><th>Revision</th><th>Instructions</th><th>Labels</th></tr></thead>
-      <tbody>
-      {% for revision in policy_revisions %}
-        <tr>
-          <td>{{ revision.saved_at }}</td>
-          <td class="mono">{{ revision.policy_hash[:10] }}</td>
-          <td>{{ revision.policy.prompt }}</td>
-          <td>{{ revision.policy.labels | join(', ') }}</td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+<section class="audit-section">
+  <div class="section-heading-row">
+    <div><p class="eyebrow">Policy audit</p><h2>Instruction history</h2></div>
   </div>
-  {% else %}<p class="empty-state">No saved instruction revisions yet.</p>{% endif %}
+  {% if policy_revisions %}
+  <div class="revision-list">
+    {% for revision in policy_revisions %}
+    <details class="revision-item">
+      <summary>
+        <span><strong>{{ revision.saved_at }}</strong><small>Revision {{ revision.policy_hash[:10] }}</small></span>
+        <span>{{ revision.policy.labels | length }} labels</span>
+      </summary>
+      <div class="revision-body">
+        <p>{{ revision.policy.prompt }}</p>
+        <div class="chip-row">{% for label in revision.policy.labels %}<span class="label-chip">{{ label }}</span>{% endfor %}</div>
+      </div>
+    </details>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="empty-state">Your saved policy revisions will appear here.</p>
+  {% endif %}
 </section>
 
 <section class="danger-zone">
-  <div><h2>Disconnect and delete</h2><p>Revokes the Google grant when possible and deletes the encrypted Gmail connection and policy.</p></div>
+  <div>
+    <h2>Disconnect Gmail</h2>
+    <p>Revoke the Google grant when possible and delete the encrypted Gmail connection and saved policy.</p>
+  </div>
   <form method="post" action="/disconnect">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <button class="danger" type="submit">Disconnect Gmail</button>
+    <button class="danger-outline" type="submit">Disconnect</button>
   </form>
 </section>
 {% endblock %}

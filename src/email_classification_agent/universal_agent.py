@@ -221,6 +221,7 @@ class UniversalClassificationAgent:
             create=not dry_run,
         )
         label_ids: dict[str, str] = {}
+        allowed_labels = {label.casefold(): label for label in policy.labels}
         for label in policy.labels:
             self._operation_guard()
             label_ids[label] = self._gmail.ensure_label(
@@ -250,6 +251,8 @@ class UniversalClassificationAgent:
                 except Exception as exc:  # noqa: BLE001 - worker owns provider retries
                     raise ProviderClassificationError from exc
                 proposed_label = decision.label
+                if proposed_label:
+                    proposed_label = allowed_labels.get(proposed_label.casefold(), proposed_label)
                 if proposed_label and decision.confidence < policy.confidence_threshold:
                     report.low_confidence += 1
                     action = (
@@ -308,7 +311,7 @@ class UniversalClassificationAgent:
                         action=action,
                         reason=decision.reason,
                         evidence=tuple(decision.evidence),
-                        secondary_label=_miami_dade_label(proposed_label, message),
+                        secondary_label=secondary_label,
                     )
                 )
             except ProviderClassificationError:
