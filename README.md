@@ -26,6 +26,11 @@ Every connected user controls:
 - preview, reviewed apply, and optional scheduled operation;
 - a bounded `.eml` preview for testing a single email.
 
+When the allow-list contains `Wholesaler` or `Wholesale`, the web classifier also applies a
+server-controlled Miami-Dade child label (`Wholesaler/Miami-Dade` or `Wholesale/Miami-Dade`)
+when the current wholesale email contains one of the configured Miami-Dade ZIP codes. This
+secondary routing is determined during preview and carried into the reviewed apply plan.
+
 The server-controlled safety boundary is not externalized. It permits only creation and
 addition of allow-listed **user** labels, always sends an empty `removeLabelIds` list, and has
 no archive, delete, trash, send, forward, or label-removal action. Email and thread content are

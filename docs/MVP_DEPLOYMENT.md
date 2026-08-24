@@ -10,6 +10,7 @@ It supports:
 - Gmail previews and reviewed apply
 - `.eml` tests
 - run and instruction history while the instance is alive
+- deterministic `Wholesaler/Miami-Dade` ZIP routing for the configured wholesale label
 
 The web flow is multi-user. Any Google account can create its own connection when that
 account's owner explicitly signs in and grants access. There is no application allow-list for
