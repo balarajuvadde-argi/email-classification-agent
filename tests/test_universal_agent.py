@@ -9,6 +9,7 @@ from email_classification_agent.universal_models import (
     ClassificationPolicy,
     UniversalDecision,
 )
+from email_classification_agent.property_appraiser import PropertyRecord
 
 
 def _encoded(value: str) -> str:
@@ -68,6 +69,16 @@ class _Classifier:
         return self.decision
 
 
+class _PropertyClient:
+    def __init__(self, records):
+        self.records = records
+        self.calls = []
+
+    def lookup_email(self, message):
+        self.calls.append(message)
+        return list(self.records)
+
+
 def _policy(threshold=0.85):
     return ClassificationPolicy(
         prompt="Label all invoices and payment receipts as Finance.",
@@ -80,6 +91,13 @@ def _wholesale_policy():
     return ClassificationPolicy(
         prompt="Label actual wholesale property offers as Wholesaler.",
         labels=["Wholesaler"],
+    )
+
+
+def _wholesale_current_policy():
+    return ClassificationPolicy(
+        prompt="Label actual wholesale property offers as Wholesale.",
+        labels=["Wholesale"],
     )
 
 
@@ -138,6 +156,117 @@ def test_one_matching_zip_routes_email_with_other_non_miami_zips() -> None:
     ).preview(_wholesale_policy())
 
     assert report.outcomes[0].secondary_label == "Wholesaler/Miami-Dade"
+
+
+def test_qualified_miami_dade_property_routes_to_important_sublabel() -> None:
+    gmail = _Gmail()
+    gmail.get_message = _wholesale_resource
+    policy = _wholesale_current_policy()
+    property_client = _PropertyClient(
+        [
+            PropertyRecord(
+                address="16225 NE 2nd Ave",
+                asking_price=250_000,
+                folio="30-2218-007-2720",
+                municipality="UNINCORPORATED COUNTY",
+                land_use="RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                legal_description="LOT 12 AND 13",
+                lot_size_sqft=10_000,
+                lookup_status="verified",
+                qualifies=True,
+                is_folio_30=True,
+                has_double_lot=True,
+                is_unincorporated=True,
+                reasons=("folio starts with 30 (unincorporated Miami-Dade)",),
+            )
+        ]
+    )
+    agent = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesale",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+        property_client=property_client,
+    )
+
+    preview = agent.preview(policy)
+    plan = ActionPlan(
+        user_id="u1",
+        policy_hash=policy.policy_hash,
+        mailbox="user@example.com",
+        outcomes=tuple(preview.outcomes),
+        expires_at=int(time.time()) + 60,
+    )
+
+    report = agent.apply_plan(policy, plan)
+
+    assert preview.outcomes[0].secondary_label == "Wholesale/Miami-Dade/Important"
+    assert report.outcomes[0].secondary_label == "Wholesale/Miami-Dade/Important"
+    assert gmail.writes == [
+        (
+            "m1",
+            [
+                "ID:Wholesale/Miami-Dade/Important",
+                "ID:Wholesale/Miami-Dade",
+                "ID:Wholesale",
+                f"ID:{policy.processed_label}",
+            ],
+        )
+    ]
+    assert len(property_client.calls) == 1
+    assert all("Qualified" not in call[0] for call in gmail.ensure_calls)
+
+
+def test_property_lookup_only_runs_after_miami_dade_zip_match() -> None:
+    gmail = _Gmail()
+    resource = _wholesale_resource()
+    resource["payload"]["headers"][1]["value"] = "Wholesale deal in Palm Beach"
+    resource["payload"]["body"]["data"] = _encoded("Property offer in Lake Worth Beach 33460")
+    gmail.get_message = lambda message_id: resource
+    property_client = _PropertyClient(
+        [
+            PropertyRecord(
+                address="16225 NE 2nd Ave",
+                asking_price=250_000,
+                folio="30-2218-007-2720",
+                municipality="UNINCORPORATED COUNTY",
+                land_use="RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                legal_description="LOT 12 AND 13",
+                lot_size_sqft=10_000,
+                lookup_status="verified",
+                qualifies=True,
+                is_folio_30=True,
+                has_double_lot=True,
+                is_unincorporated=True,
+                reasons=("folio starts with 30 (unincorporated Miami-Dade)",),
+            )
+        ]
+    )
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesale",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+        property_client=property_client,
+    ).preview(_wholesale_current_policy())
+
+    assert report.outcomes[0].proposed_label == "Wholesale"
+    assert report.outcomes[0].secondary_label is None
+    assert report.outcomes[0].property_records == ()
+    assert property_client.calls == []
 
 
 def test_miami_dade_sublabel_is_added_during_apply() -> None:

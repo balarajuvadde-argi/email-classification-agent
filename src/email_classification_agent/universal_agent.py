@@ -16,7 +16,7 @@ from .universal_models import (
     UniversalReport,
 )
 
-LOGGER = logging.getLogger(__name__)
+# LOGGER = logging.getLogger(__name__)
 MIAMI_DADE_ZIPS = frozenset(
     [
         "33010", "33012", "33013", "33014", "33015", "33016", "33018", "33030",
@@ -31,6 +31,7 @@ MIAMI_DADE_ZIPS = frozenset(
         "33186", "33187", "33189", "33190", "33193", "33194", "33196", "33231",
     ]
 )
+MIAMI_DADE_IMPORTANT_SUFFIX = "Miami-Dade/Important"
 
 
 def _miami_dade_label(primary_label: str | None, message: ParsedEmail) -> str | None:
@@ -40,6 +41,16 @@ def _miami_dade_label(primary_label: str | None, message: ParsedEmail) -> str | 
     if any(re.search(rf"(?<!\d){zip_code}(?!\d)", current_text) for zip_code in MIAMI_DADE_ZIPS):
         return f"{primary_label}/Miami-Dade"
     return None
+
+
+def _secondary_label_chain(primary_label: str | None, secondary_label: str | None) -> tuple[str, ...]:
+    if not primary_label or not secondary_label:
+        return ()
+    important_label = f"{primary_label}/{MIAMI_DADE_IMPORTANT_SUFFIX}"
+    miami_dade_label = f"{primary_label}/Miami-Dade"
+    if secondary_label.casefold() == important_label.casefold():
+        return (miami_dade_label, important_label)
+    return (secondary_label,)
 
 
 class ProviderClassificationError(RuntimeError):
@@ -135,7 +146,7 @@ class UniversalClassificationAgent:
                 proposed_label = exact_label
                 valid_secondary_labels = {
                     f"{proposed_label}/miami-dade".casefold(),
-                    f"{proposed_label}/qualified".casefold(),
+                    f"{proposed_label}/{MIAMI_DADE_IMPORTANT_SUFFIX}".casefold(),
                 }
                 if secondary_label and secondary_label.casefold() not in valid_secondary_labels:
                     secondary_label = None
@@ -167,15 +178,15 @@ class UniversalClassificationAgent:
                         )
                         label_ids[proposed_label] = label_id
                     ids.insert(0, label_id)
-                if secondary_label:
-                    secondary_id = label_ids.get(secondary_label)
+                for label_name in _secondary_label_chain(proposed_label, secondary_label):
+                    secondary_id = label_ids.get(label_name)
                     if secondary_id is None:
                         secondary_id = self._gmail.ensure_label(
-                            secondary_label,
+                            label_name,
                             visible=True,
                             create=True,
                         )
-                        label_ids[secondary_label] = secondary_id
+                        label_ids[label_name] = secondary_id
                     ids.insert(0, secondary_id)
                 self._operation_guard()
                 self._gmail.add_labels(outcome.message_id, ids)
@@ -190,11 +201,11 @@ class UniversalClassificationAgent:
                 )
                 report.outcomes.append(outcome)
             except Exception as exc:  # noqa: BLE001 - isolate each Gmail message
-                LOGGER.error(
-                    "Failed to apply labels to Gmail message %s (%s)",
-                    outcome.message_id,
-                    type(exc).__name__,
-                )
+                # LOGGER.error(
+                #     "Failed to apply labels to Gmail message %s (%s)",
+                #     outcome.message_id,
+                #     type(exc).__name__,
+                # )
                 report.failed += 1
                 report.outcomes.append(
                     UniversalOutcome(
@@ -284,11 +295,14 @@ class UniversalClassificationAgent:
                         self._property_client
                         and proposed_label
                         and proposed_label.casefold() in {"wholesale", "wholesaler"}
+                        and secondary_label
                     )
                     else ()
                 )
-                if any(record["qualifies"] for record in property_records):
-                    secondary_label = f"{proposed_label}/Qualified"
+                has_qualified = any(record.get("qualifies") for record in property_records)
+
+                if has_qualified:
+                    secondary_label = f"{proposed_label}/{MIAMI_DADE_IMPORTANT_SUFFIX}"
 
                 should_process = (
                     decision.label is None
@@ -299,15 +313,15 @@ class UniversalClassificationAgent:
                     ids = [processed_id]
                     if proposed_label:
                         ids.insert(0, label_ids[proposed_label])
-                    if secondary_label:
-                        secondary_id = label_ids.get(secondary_label)
+                    for label_name in _secondary_label_chain(proposed_label, secondary_label):
+                        secondary_id = label_ids.get(label_name)
                         if secondary_id is None:
                             secondary_id = self._gmail.ensure_label(
-                                secondary_label,
+                                label_name,
                                 visible=True,
                                 create=True,
                             )
-                            label_ids[secondary_label] = secondary_id
+                            label_ids[label_name] = secondary_id
                         ids.insert(0, secondary_id)
                     self._operation_guard()
                     self._gmail.add_labels(message.message_id, ids)
@@ -334,11 +348,11 @@ class UniversalClassificationAgent:
             except ProviderClassificationError:
                 raise
             except Exception as exc:  # noqa: BLE001 - isolate each Gmail message
-                LOGGER.error(
-                    "Failed to classify Gmail message %s (%s)",
-                    message_id,
-                    type(exc).__name__,
-                )
+                # LOGGER.error(
+                #     "Failed to classify Gmail message %s (%s)",
+                #     message_id,
+                #     type(exc).__name__,
+                # )
                 report.failed += 1
                 report.outcomes.append(
                     UniversalOutcome(
@@ -372,7 +386,7 @@ class UniversalClassificationAgent:
             self._operation_guard()
             resource = self._gmail.get_thread(current.thread_id)
         except Exception:  # noqa: BLE001 - current message remains classifiable
-            LOGGER.warning("Could not load thread %s", current.thread_id, exc_info=True)
+            # LOGGER.warning("Could not load thread %s", current.thread_id, exc_info=True)
             return ""
         indexed = [
             (index, parse_gmail_message(item))

@@ -10,7 +10,8 @@ It supports:
 - Gmail previews and reviewed apply
 - `.eml` tests
 - run and instruction history while the instance is alive
-- deterministic `Wholesaler/Miami-Dade` ZIP routing for the configured wholesale label
+- deterministic `<primary>/Miami-Dade` ZIP routing for the configured wholesale label
+- verified acquisition-target routing to `<primary>/Miami-Dade/Important`
 - Miami-Dade Property Appraiser address and folio verification when enabled
 
 The web flow is multi-user. Any Google account can create its own connection when that
@@ -120,8 +121,9 @@ Those variables select the AWS production services.
 `PROPERTY_LOOKUP_ENABLED=true` makes the worker call the Miami-Dade Property Appraiser's
 public address and folio search service for wholesale messages. The service is queried only
 for extracted property addresses, at a bounded timeout. A failed or ambiguous lookup is
-reported as unverified and cannot create a qualification label. Review the portal's terms,
-rate limits, and acceptable-use requirements before public use.
+reported as unverified and cannot create the Important child label. Only records that pass
+the configured acquisition criteria are routed to the Important child folder. Review the
+portal's terms, rate limits, and acceptable-use requirements before public use.
 
 ## 5. Finish Google redirect configuration
 

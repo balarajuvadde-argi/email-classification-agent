@@ -58,13 +58,30 @@
       <div class="decision-detail"><small>Confidence</small><strong>{{ '%.0f' | format(outcome.confidence * 100) }}%</strong></div>
       <div class="decision-reason"><small>Reason</small><p>{{ outcome.reason }}</p></div>
       {% if outcome.property_records %}
-      <div class="decision-reason property-records"><small>Miami-Dade property verification</small>
+      <div class="decision-reason property-records">
+        <small>Miami-Dade Property Verification (Acquisition Agent)</small>
         {% for record in outcome.property_records %}
-        <p><strong>{{ record.address }}</strong>: {{ record.lookup_status | replace('_', ' ') }}{% if record.folio %}, folio {{ record.folio }}{% endif %}{% if record.qualifies %}, qualifies for initial criteria{% endif %}</p>
+        <div style="margin-top: 6px; padding: 6px 10px; border-radius: 6px; background: {% if record.is_folio_30 %}#f0fdf4; border: 1px solid #86efac;{% else %}#f9fafb; border: 1px solid #e5e7eb;{% endif %}">
+          <p style="margin: 0 0 3px 0;">
+            <strong>{{ record.address }}</strong>
+            {% if record.asking_price %}<span style="color: #047857; font-weight: 600;"> — ${{ '{:,.0f}'.format(record.asking_price) }}</span>{% endif %}
+            {% if record.is_folio_30 %}<span class="label-chip" style="margin-left: 6px; background: #dcfce7; color: #166534; font-size: 11px;">✓ Folio 30 (Unincorporated)</span>{% endif %}
+            {% if record.has_double_lot %}<span class="label-chip" style="margin-left: 4px; background: #fef9c3; color: #854d0e; font-size: 11px;">Double Lot</span>{% endif %}
+            {% if record.qualifies %}<span class="label-chip" style="margin-left: 4px; background: #bbf7d0; color: #14532d; font-size: 11px; font-weight: 700;">★ Target Match</span>{% endif %}
+          </p>
+          <small style="color: #4b5563;">
+            Status: {{ record.lookup_status | replace('_', ' ') }}
+            {% if record.folio %} | Folio: <strong>{{ record.folio }}</strong>{% endif %}
+            {% if record.municipality %} | Muni: {{ record.municipality }}{% endif %}
+            {% if record.land_use %} | Zoning: {{ record.land_use }}{% endif %}
+            {% if record.reasons %} | Notes: {{ record.reasons | join(', ') }}{% endif %}
+          </small>
+        </div>
         {% endfor %}
       </div>
       {% endif %}
     </article>
+
     {% endfor %}
   </div>
 

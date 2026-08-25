@@ -26,10 +26,11 @@ Every connected user controls:
 - preview, reviewed apply, and optional scheduled operation;
 - a bounded `.eml` preview for testing a single email.
 
-When the allow-list contains `Wholesaler` or `Wholesale`, the web classifier also applies a
-server-controlled Miami-Dade child label (`Wholesaler/Miami-Dade` or `Wholesale/Miami-Dade`)
-when the current wholesale email contains one of the configured Miami-Dade ZIP codes. This
-secondary routing is determined during preview and carried into the reviewed apply plan.
+When the allow-list contains `Wholesaler` or `Wholesale`, the web classifier also applies
+server-controlled Miami-Dade child labels. General Miami-Dade wholesale emails can receive
+`<primary>/Miami-Dade`; verified acquisition targets receive
+`<primary>/Miami-Dade/Important`. This secondary routing is determined during preview and
+carried into the reviewed apply plan.
 
 The server-controlled safety boundary is not externalized. It permits only creation and
 addition of allow-listed **user** labels, always sends an empty `removeLabelIds` list, and has
@@ -59,18 +60,18 @@ their Google password or OAuth token.
 
 The acquisition workflow can verify wholesale property addresses through the Miami-Dade
 Property Appraiser public search service. Its initial qualification rule is intentionally
-strict: the portal record must have a folio beginning with `30`, be a single-family record,
-not be in an excluded municipality, indicate multiple lots in the full legal description,
-and have an email asking price at or below $275,000 when a price is available. Verification
-results are shown in the run report; an incomplete portal lookup never qualifies or writes a
-qualification label.
+strict: the portal record must have a folio beginning with `30`, be a qualifying residential
+record, not be in an excluded municipality, and either have an email asking price at or below
+$275,000 or have double-lot/multiple-lot support for price flexibility. Verification results
+are shown in the run report; an incomplete portal lookup never qualifies or writes the
+`<primary>/Miami-Dade/Important` label.
 
 When `PROPERTY_LOOKUP_ENABLED=true`, the worker searches the Miami-Dade Property Appraiser
 public service for each extracted property address in a wholesale email. It checks the folio
 prefix, excluded municipality, land use, email asking price, and full legal description. The
-initial qualification label is created only when the website record is verified and the
-configured acquisition criteria pass; failed lookups remain unverified and are never treated
-as qualified.
+`<primary>/Miami-Dade/Important` label is created only when the website record is verified
+and the configured acquisition criteria pass; failed lookups remain unverified and are never
+treated as important targets.
 
 ## Web quick start
 
