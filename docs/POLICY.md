@@ -8,7 +8,7 @@ Keep approved listing-platform mail in the main inbox. Add the visible `Wholesal
 
 This release has two destinations only:
 
-- `Wholesale` + preserved `INBOX`
+- `Wholesale` and moved out of `INBOX`
 - Main inbox only
 
 It does not create or move mail into `On Market`, `Off Market`, or `News`, because the latest written instruction says approved platform messages must remain in the main inbox and defines only the `Wholesale` routing action.
@@ -114,11 +114,11 @@ For `WHOLESALE`:
 
 - add `Wholesale`;
 - add the hidden policy-version marker `EmailAgent/Processed/v2` after successful handling;
-- preserve `INBOX`.
+- remove `INBOX` so Gmail shows the message under `Wholesale` instead of the Inbox.
 
 For `KEEP_IN_INBOX`:
 
 - do not add `Wholesale`;
 - add the hidden processed marker only when the decision is complete and safe to mark processed.
 
-The Gmail wrapper has no archive, move, delete, trash, send, or label-removal operation. Its only message mutation adds labels with an empty `removeLabelIds` list.
+The Gmail wrapper has no delete, trash, send, forward, or destination-label removal operation. Its message mutation can add labels and remove only `INBOX` from messages that received a destination label.

@@ -9,11 +9,12 @@ GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 
 
 class GmailClient:
-    """Small Gmail API wrapper that exposes label-only writes.
+    """Small Gmail API wrapper that exposes bounded label writes.
 
     This class intentionally has no archive, trash, delete, or send methods.
-    The only message write is add_labels(), which always sends an empty
-    removeLabelIds list so the INBOX label is preserved.
+    The only message write is add_labels(). When requested by the caller, it
+    removes the INBOX label only after adding a destination label, which is how
+    Gmail moves a message into labels without deleting it.
     """
 
     def __init__(self, service: Any) -> None:
@@ -199,11 +200,17 @@ class GmailClient:
                 body["data"] = data
                 part["body"] = body
 
-    def add_labels(self, message_id: str, label_ids: list[str]) -> None:
+    def add_labels(
+        self,
+        message_id: str,
+        label_ids: list[str],
+        *,
+        remove_inbox: bool = False,
+    ) -> None:
         clean_ids = [label_id for label_id in label_ids if not label_id.startswith("DRYRUN:")]
         if not clean_ids:
             return
-        body = {"addLabelIds": clean_ids, "removeLabelIds": []}
+        body = {"addLabelIds": clean_ids, "removeLabelIds": ["INBOX"] if remove_inbox else []}
         (
             self._service.users()
             .messages()

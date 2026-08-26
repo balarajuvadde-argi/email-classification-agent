@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import secrets
 import time
 import urllib.parse
@@ -22,6 +21,7 @@ from .multitenant_store import (
     InMemoryMultiTenantStore,
     MultiTenantStore,
 )
+from .property_appraiser import MiamiDadePropertyClient
 from .token_security import (
     FernetTokenCipher,
     KmsTokenCipher,
@@ -34,7 +34,7 @@ from .universal_classifier import UniversalEmailClassifier
 from .universal_models import ActionPlan, RunRecord, UniversalOutcome, UserRecord
 from .web_config import WebSettings, load_google_client_config, load_openai_api_key
 
-LOGGER = logging.getLogger(__name__)
+#LOGGER = logging.get#LOGGER(__name__)
 
 
 class JobQueue(Protocol):
@@ -99,6 +99,9 @@ class WebRuntime:
         self._identity_verifier = identity_verifier
         self._gmail_factory = gmail_factory
         self._classifier_factory = classifier_factory or self._default_classifier
+        self._property_client = (
+            MiamiDadePropertyClient() if settings.property_lookup_enabled else None
+        )
 
     @staticmethod
     def _build_store(settings: WebSettings) -> MultiTenantStore:
@@ -134,20 +137,20 @@ class WebRuntime:
     def _classification_failure_message(self, exc: Exception) -> str:
         status_code = getattr(exc, "status_code", None)
         if status_code == 404:
-            LOGGER.error(
-                "OpenAI model unavailable model=%s status=%s",
-                self.settings.openai_model,
-                status_code,
-            )
+            #LOGGER.error(
+            #     "OpenAI model unavailable model=%s status=%s",
+            #     self.settings.openai_model,
+            #     status_code,
+            # )
             return (
                 "The configured AI model is unavailable. Update OPENAI_MODEL to a supported "
                 "model, then run the preview again."
             )
-        LOGGER.error(
-            "Classification provider failure provider=OpenAI model=%s error_type=%s",
-            self.settings.openai_model,
-            type(exc).__name__,
-        )
+        #LOGGER.error(
+        #     "Classification provider failure provider=OpenAI model=%s error_type=%s",
+        #     self.settings.openai_model,
+        #     type(exc).__name__,
+        # )
         return (
             "The AI classification service could not complete this run. Check the OpenAI "
             "configuration and try again."
@@ -406,6 +409,7 @@ class WebRuntime:
                 self._classifier_factory(),
                 expected_email=user.email,
                 operation_guard=operation_guard,
+                property_client=self._property_client,
             )
             consumed_plan_id = ""
             if running.mode == "preview":
@@ -469,11 +473,11 @@ class WebRuntime:
                 self.store.release_active_run(user_id, run_id)
             return completed
         except Exception as exc:  # noqa: BLE001 - worker records a safe failure
-            LOGGER.error(
-                "Classification run %s failed (%s)",
-                running.run_id,
-                type(exc).__name__,
-            )
+            #LOGGER.error(
+            #     "Classification run %s failed (%s)",
+            #     running.run_id,
+            #     type(exc).__name__,
+            # )
             message = self._classification_failure_message(exc)
             if self.queue is not None and running.attempts < 3:
                 retry = replace(
@@ -484,7 +488,7 @@ class WebRuntime:
                 )
                 self.store.update_run(retry)
                 raise RuntimeError("Classification job should be retried") from None
-            LOGGER.error("Terminal classification failure for run %s", running.run_id)
+            #LOGGER.error("Terminal classification failure for run %s", running.run_id)
             return self._fail_run(running, message)
 
     def _assert_current_connection(
@@ -533,6 +537,7 @@ class WebRuntime:
                 user,
                 require_automatic=False,
             ),
+            property_client=self._property_client,
         )
         report = agent.apply_plan(user.policy, plan).as_dict()
         self.store.consume_plan(plan_id)

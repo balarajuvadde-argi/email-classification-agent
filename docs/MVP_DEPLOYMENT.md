@@ -10,7 +10,9 @@ It supports:
 - Gmail previews and reviewed apply
 - `.eml` tests
 - run and instruction history while the instance is alive
-- deterministic `Wholesaler/Miami-Dade` ZIP routing for the configured wholesale label
+- deterministic `<primary>/Miami-Dade` ZIP routing for the configured wholesale label
+- verified acquisition-target routing to `<primary>/Miami-Dade/Important`
+- Miami-Dade Property Appraiser address and folio verification when enabled
 
 The web flow is multi-user. Any Google account can create its own connection when that
 account's owner explicitly signs in and grants access. There is no application allow-list for
@@ -84,6 +86,7 @@ In the service's Environment page, set these values:
 APP_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
 APP_ENV=staging
 MVP_MODE=true
+PROPERTY_LOOKUP_ENABLED=true
 OPENAI_API_KEY=your OpenAI project key
 OPENAI_MODEL=gpt-4o-mini
 GOOGLE_OAUTH_CLIENT_CONFIG_JSON=<complete Google Web client JSON>
@@ -114,6 +117,28 @@ OPENAI_API_KEY_SECRET_ID
 ```
 
 Those variables select the AWS production services.
+
+`PROPERTY_LOOKUP_ENABLED=true` makes the worker call the Miami-Dade Property Appraiser's
+public address and folio search service for wholesale messages. The service is queried only
+for extracted property addresses, at a bounded timeout. A failed or ambiguous lookup is
+reported as unverified and cannot create the Important child label. Only records that pass
+the configured acquisition criteria are routed to the Important child folder. Review the
+portal's terms, rate limits, and acceptable-use requirements before public use.
+
+The default acquisition settings match the current Miami-Dade workflow. Change these Render
+environment variables later if the client changes the target criteria:
+
+```text
+ACQUISITION_MIAMI_DADE_ZIPS=33010,33012,...
+ACQUISITION_MIAMI_DADE_LABEL_SUFFIX=Miami-Dade
+ACQUISITION_IMPORTANT_LABEL_SUFFIX=Miami-Dade/Important
+ACQUISITION_PRICE_TARGET=275000
+ACQUISITION_REQUIRE_DOUBLE_LOT=true
+ACQUISITION_EXCLUDED_MUNICIPALITIES=MIAMI GARDENS,OPA-LOCKA,OPALOCKA,NORTH MIAMI
+ACQUISITION_QUALIFYING_LAND_USE_TERMS=SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
+PROPERTY_LOOKUP_TIMEOUT_SECONDS=12
+CANDIDATE_SCAN_WINDOW=100
+```
 
 ## 5. Finish Google redirect configuration
 

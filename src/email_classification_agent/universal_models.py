@@ -42,7 +42,7 @@ class ClassificationPolicy(BaseModel):
         max_length=500,
     )
     confidence_threshold: float = Field(default=0.85, ge=0.5, le=1.0)
-    max_messages_per_run: int = Field(default=10, ge=1, le=10)
+    max_messages_per_run: int = Field(default=100, ge=1, le=100)
     automatic_enabled: bool = False
 
     @field_validator("prompt", "gmail_query", mode="before")
@@ -135,6 +135,7 @@ class UniversalOutcome:
     reason: str
     evidence: tuple[str, ...] = ()
     secondary_label: str | None = None
+    property_records: tuple[dict[str, Any], ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
         value = asdict(self)

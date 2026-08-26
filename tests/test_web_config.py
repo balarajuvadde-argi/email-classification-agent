@@ -10,6 +10,7 @@ from email_classification_agent.token_security import FernetTokenCipher
 from email_classification_agent.web_app import create_app
 from email_classification_agent.web_config import WebSettings, load_google_client_config
 from email_classification_agent.web_runtime import WebRuntime
+
 CLIENT_CONFIG = {
     "web": {
         "client_id": "client.apps.googleusercontent.com",

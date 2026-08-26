@@ -26,15 +26,17 @@ Every connected user controls:
 - preview, reviewed apply, and optional scheduled operation;
 - a bounded `.eml` preview for testing a single email.
 
-When the allow-list contains `Wholesaler` or `Wholesale`, the web classifier also applies a
-server-controlled Miami-Dade child label (`Wholesaler/Miami-Dade` or `Wholesale/Miami-Dade`)
-when the current wholesale email contains one of the configured Miami-Dade ZIP codes. This
-secondary routing is determined during preview and carried into the reviewed apply plan.
+When the allow-list contains `Wholesaler` or `Wholesale`, the web classifier also applies
+server-controlled Miami-Dade child labels. General Miami-Dade wholesale emails can receive
+`<primary>/Miami-Dade`; verified acquisition targets receive
+`<primary>/Miami-Dade/Important`. This secondary routing is determined during preview and
+carried into the reviewed apply plan.
 
-The server-controlled safety boundary is not externalized. It permits only creation and
-addition of allow-listed **user** labels, always sends an empty `removeLabelIds` list, and has
-no archive, delete, trash, send, forward, or label-removal action. Email and thread content are
-untrusted model input and cannot change this action boundary.
+The server-controlled safety boundary is not externalized. It permits creation and addition
+of allow-listed **user** labels, and removes `INBOX` only from messages that receive a
+destination label so Gmail shows them under the chosen label instead of the Inbox. It has no
+delete, trash, send, forward, or destination-label removal action. Email and thread content
+are untrusted model input and cannot change this action boundary.
 
 ## Web credential model
 
@@ -56,6 +58,34 @@ The web application is multi-user and does not restrict connections to the legac
 Any Google account may connect its own mailbox after its owner completes Google OAuth consent.
 Do not access a client's mailbox without that client's explicit authorization; do not ask for
 their Google password or OAuth token.
+
+The acquisition workflow can verify wholesale property addresses through the Miami-Dade
+Property Appraiser public search service. Its initial qualification rule is intentionally
+strict: the portal record must have a folio beginning with `30`, be a qualifying residential
+record, not be in an excluded municipality, have an email asking price at or below the
+configured target, and show double-lot/multiple-lot support when that requirement is enabled.
+Verification results are shown in the run report; an incomplete portal lookup never qualifies
+or writes the `<primary>/Miami-Dade/Important` label.
+
+When `PROPERTY_LOOKUP_ENABLED=true`, the worker searches the Miami-Dade Property Appraiser
+public service for each extracted property address in a wholesale email. It checks the folio
+prefix, excluded municipality, land use, email asking price, and full legal description. The
+`<primary>/Miami-Dade/Important` label is created only when the website record is verified
+and the configured acquisition criteria pass; failed lookups remain unverified and are never
+treated as important targets.
+
+The acquisition values are deployment configuration, not code constants. Change them through
+environment variables or SAM parameters:
+
+- `ACQUISITION_MIAMI_DADE_ZIPS`
+- `ACQUISITION_MIAMI_DADE_LABEL_SUFFIX`
+- `ACQUISITION_IMPORTANT_LABEL_SUFFIX`
+- `ACQUISITION_PRICE_TARGET`
+- `ACQUISITION_REQUIRE_DOUBLE_LOT`
+- `ACQUISITION_EXCLUDED_MUNICIPALITIES`
+- `ACQUISITION_QUALIFYING_LAND_USE_TERMS`
+- `PROPERTY_LOOKUP_TIMEOUT_SECONDS`
+- `CANDIDATE_SCAN_WINDOW`
 
 ## Web quick start
 
@@ -131,7 +161,7 @@ The root-domain check is boundary-safe: `mail.zillow.com` is approved; `fakezill
 
 This release has only two outcomes:
 
-- **Wholesale:** add `Wholesale` and preserve `INBOX`.
+- **Wholesale:** add `Wholesale` and move the message out of `INBOX`.
 - **Main inbox:** do not add `Wholesale`.
 
 Earlier meeting discussion mentioned additional categories, but the latest written instruction is more specific: approved platforms stay in the main inbox, and all other actual property-sales messages go to `Wholesale`. Therefore this package does not move mail into `On Market`, `Off Market`, or `News`.
@@ -155,7 +185,7 @@ Generalization tests replace each original sender with an unrelated random domai
 7. Keep obvious internal rule/setup/training messages in the main inbox.
 8. Use a structured semantic model for borderline messages and brief thread replies.
 9. Require the configured Wholesale confidence threshold, default `0.85`.
-10. Add labels only; never remove `INBOX`.
+10. Add destination labels and remove `INBOX` only for messages that receive a destination label.
 
 ## False-positive controls
 
@@ -171,12 +201,12 @@ Current-message content is the unit of action. Only earlier messages from the sa
 
 ## Message preservation and safety
 
-The Gmail wrapper only adds labels. It has no archive, move, trash, delete, send, or label-removal method. Every write uses:
+The Gmail wrapper can add labels and remove `INBOX` from messages that received a destination label. It has no trash, delete, send, forward, or destination-label removal method. A move-to-label write uses:
 
 ```json
 {
   "addLabelIds": ["..."],
-  "removeLabelIds": []
+  "removeLabelIds": ["INBOX"]
 }
 ```
 
