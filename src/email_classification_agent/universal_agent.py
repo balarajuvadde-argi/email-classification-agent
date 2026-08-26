@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import logging
+# import logging
 import re
 from collections.abc import Callable
 
@@ -189,7 +189,11 @@ class UniversalClassificationAgent:
                         label_ids[label_name] = secondary_id
                     ids.insert(0, secondary_id)
                 self._operation_guard()
-                self._gmail.add_labels(outcome.message_id, ids)
+                self._gmail.add_labels(
+                    outcome.message_id,
+                    ids,
+                    remove_inbox=bool(proposed_label),
+                )
                 if proposed_label:
                     report.labeled += 1
                 else:
@@ -245,15 +249,19 @@ class UniversalClassificationAgent:
                 visible=True,
                 create=not dry_run,
             )
-        query = f'{policy.gmail_query} -label:"{policy.processed_label}"'
+        query = (
+            policy.gmail_query
+            if dry_run
+            else f'{policy.gmail_query} -label:"{policy.processed_label}"'
+        )
         self._operation_guard()
-        message_ids = self._gmail.list_message_ids(query, policy.max_messages_per_run)
-        for message_id in message_ids:
+        message_limit = policy.max_messages_per_run
+        candidate_limit = min(100, max(message_limit * 5, message_limit))
+        message_ids = self._gmail.list_message_ids(query, candidate_limit)
+        messages = self._ordered_messages(message_ids)[:message_limit]
+        for message in messages:
             report.scanned += 1
             try:
-                self._operation_guard()
-                resource = self._gmail.get_message(message_id)
-                message = parse_gmail_message(resource)
                 thread_context = self._thread_context(message)
                 self._operation_guard()
                 try:
@@ -324,7 +332,11 @@ class UniversalClassificationAgent:
                             label_ids[label_name] = secondary_id
                         ids.insert(0, secondary_id)
                     self._operation_guard()
-                    self._gmail.add_labels(message.message_id, ids)
+                    self._gmail.add_labels(
+                        message.message_id,
+                        ids,
+                        remove_inbox=bool(proposed_label),
+                    )
                     if proposed_label:
                         report.labeled += 1
                     else:
@@ -350,13 +362,13 @@ class UniversalClassificationAgent:
             except Exception as exc:  # noqa: BLE001 - isolate each Gmail message
                 # LOGGER.error(
                 #     "Failed to classify Gmail message %s (%s)",
-                #     message_id,
+                #     message.message_id,
                 #     type(exc).__name__,
                 # )
                 report.failed += 1
                 report.outcomes.append(
                     UniversalOutcome(
-                        message_id=message_id,
+                        message_id=message.message_id,
                         thread_id="",
                         subject="",
                         sender="",
@@ -369,6 +381,16 @@ class UniversalClassificationAgent:
                     )
                 )
         return report
+
+    def _ordered_messages(self, message_ids: list[str]) -> list[ParsedEmail]:
+        indexed: list[tuple[int, int, ParsedEmail]] = []
+        for index, message_id in enumerate(message_ids):
+            self._operation_guard()
+            resource = self._gmail.get_message(message_id)
+            message = parse_gmail_message(resource)
+            indexed.append((index, message.internal_date_ms, message))
+        indexed.sort(key=lambda item: (-item[1], item[0], item[2].message_id))
+        return [message for _, _, message in indexed]
 
     def _verified_mailbox(self) -> str:
         mailbox = self._gmail.profile_email().strip().casefold()

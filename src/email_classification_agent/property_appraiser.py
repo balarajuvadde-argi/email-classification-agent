@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import logging
+# import logging
 import re
 import urllib.parse
 import urllib.request
@@ -193,10 +193,12 @@ def _record_from_detail(
     is_unincorporated = is_folio_30 or "UNINCORPORATED" in municipality
     is_excluded_muni = municipality in EXCLUDED_MUNICIPALITIES
 
-    # Double lot detection (e.g. LOT 12 AND 13, LOTS 15 & 16, LOTS 17 THROUGH 19, DOUBLE LOT)
+    # Double lot detection from the official legal description only. Avoid false
+    # positives like "LOT 1 BLK 2 LOT SIZE 50 X 110", where the second number is
+    # a block number and not another lot.
     has_double_lot = bool(
         re.search(
-            r"\bLOTS?\s+\d+\s*(?:AND|THROUGH|TO|-|&)\s*\d+|\bDOUBLE\s+LOT\b|\b2\s+LOTS?\b|\bMULTIPLE\s+LOTS?\b",
+            r"\bLOTS?\s+\d+[A-Z]?\s*(?:AND|THROUGH|THRU|TO|-|&)\s*\d+[A-Z]?\b",
             legal_description,
             re.I,
         )
@@ -224,6 +226,8 @@ def _record_from_detail(
 
     if has_double_lot:
         reasons.append("legal description indicates double/multiple lots")
+    else:
+        reasons.append("legal description does not show multiple lot numbers")
     
     if is_single_family_or_duplex:
         reasons.append(f"qualifying zoning/land use: {land_use}")
@@ -232,17 +236,21 @@ def _record_from_detail(
         reasons.append(f"asking price ${asking_price:,.0f} is under $275,000 target")
     elif price_specified:
         reasons.append(f"asking price ${asking_price:,.0f} is above $275,000 target")
+    else:
+        reasons.append("asking price was not found in the email")
 
     # Qualification criteria:
     # 1. Folio must start with 30 (unincorporated county)
     # 2. Municipality must not be excluded (Miami Gardens, Opa-locka, North Miami)
     # 3. Must be Single Family / Duplex
-    # 4. Must be under $275k target OR have a double lot (which justifies price flexibility)
+    # 4. Official legal description must show more than one lot
+    # 5. Email asking price must be at or below the $275k target
     qualifies = (
         is_folio_30
         and not is_excluded_muni
         and is_single_family_or_duplex
-        and (price_under_target or has_double_lot or asking_price is None)
+        and has_double_lot
+        and price_under_target
     )
 
     # LOGGER.info(

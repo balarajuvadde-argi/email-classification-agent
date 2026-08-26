@@ -57,15 +57,18 @@ class _Gmail:
     def get_thread(self, thread_id):
         return {"messages": [_resource("m1")]}
 
-    def add_labels(self, message_id, label_ids):
-        self.writes.append((message_id, list(label_ids)))
+    def add_labels(self, message_id, label_ids, *, remove_inbox=False):
+        self.writes.append((message_id, list(label_ids), remove_inbox))
 
 
 class _Classifier:
     def __init__(self, decision):
         self.decision = decision
+        self.calls = []
 
     def classify(self, *args, **kwargs):
+        if args:
+            self.calls.append(args[0])
         return self.decision
 
 
@@ -217,6 +220,7 @@ def test_qualified_miami_dade_property_routes_to_important_sublabel() -> None:
                 "ID:Wholesale",
                 f"ID:{policy.processed_label}",
             ],
+            True,
         )
     ]
     assert len(property_client.calls) == 1
@@ -304,6 +308,7 @@ def test_miami_dade_sublabel_is_added_during_apply() -> None:
                 "ID:Wholesaler",
                 f"ID:{policy.processed_label}",
             ],
+            True,
         )
     ]
 
@@ -321,7 +326,57 @@ def test_preview_is_read_only_and_proposes_only_allowed_label() -> None:
     assert report.outcomes[0].proposed_label == "Finance"
     assert gmail.writes == []
     assert all(create is False for _, _, create in gmail.ensure_calls)
+    assert '-label:"EmailAgent/Processed/' not in gmail.query
+
+
+def test_automatic_run_skips_processed_messages() -> None:
+    gmail = _Gmail()
+    classifier = _Classifier(
+        UniversalDecision(label="Finance", confidence=0.96, reason="Invoice", evidence=[])
+    )
+    policy = ClassificationPolicy(
+        prompt="Label all invoices and payment receipts as Finance.",
+        labels=["Finance"],
+        automatic_enabled=True,
+    )
+
+    UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).run_automatic(policy)
+
     assert '-label:"EmailAgent/Processed/' in gmail.query
+
+
+def test_preview_processes_candidates_newest_first_even_when_gmail_ids_are_unordered() -> None:
+    gmail = _Gmail()
+    resources = {
+        "old": _resource("old"),
+        "new": _resource("new"),
+        "middle": _resource("middle"),
+    }
+    resources["old"]["internalDate"] = "1000"
+    resources["old"]["payload"]["headers"][1]["value"] = "Old invoice"
+    resources["new"]["internalDate"] = "3000"
+    resources["new"]["payload"]["headers"][1]["value"] = "New invoice"
+    resources["middle"]["internalDate"] = "2000"
+    resources["middle"]["payload"]["headers"][1]["value"] = "Middle invoice"
+    gmail.list_message_ids = lambda query, max_results: ["old", "new", "middle"]
+    gmail.get_message = lambda message_id: resources[message_id]
+    classifier = _Classifier(
+        UniversalDecision(label="Finance", confidence=0.96, reason="Invoice", evidence=[])
+    )
+    policy = ClassificationPolicy(
+        prompt="Label all invoices and payment receipts as Finance.",
+        labels=["Finance"],
+        max_messages_per_run=2,
+    )
+
+    report = UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).preview(policy)
+
+    assert [outcome.message_id for outcome in report.outcomes] == ["new", "middle"]
+    assert [message.message_id for message in classifier.calls] == ["new", "middle"]
 
 
 def test_apply_reviewed_plan_adds_destination_and_processed_labels_only() -> None:
@@ -346,6 +401,7 @@ def test_apply_reviewed_plan_adds_destination_and_processed_labels_only() -> Non
         (
             "m1",
             ["ID:Finance", f"ID:{_policy().processed_label}"],
+            True,
         )
     ]
 

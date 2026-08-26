@@ -85,7 +85,7 @@
     {% endfor %}
   </div>
 
-  {% if run.mode == 'preview' %}<p class="microcopy">Preview plans expire after {{ plan_minutes }} minutes and can be applied only once. Applying queues the shown destination labels and a hidden processed marker; it removes nothing.</p>{% else %}<p class="microcopy">The worker only added the reviewed destination labels and hidden processed marker. It removed nothing.</p>{% endif %}
+  {% if run.mode == 'preview' %}<p class="microcopy">Preview shows the newest matching Inbox messages, including messages already reviewed. Preview plans expire after {{ plan_minutes }} minutes and can be applied only once. Applying queues the shown destination labels, removes Inbox from labeled messages, and adds a hidden processed marker.</p>{% else %}<p class="microcopy">The worker added the reviewed destination labels, removed Inbox from labeled messages, and added the hidden processed marker.</p>{% endif %}
 </section>
 {% endif %}
 

@@ -8,8 +8,8 @@ production controls are documented in [`WEB_DEPLOYMENT.md`](WEB_DEPLOYMENT.md).
 The agent uses the Gmail `gmail.modify` OAuth scope because Gmail requires it to read messages and create or apply labels. That OAuth grant is broader than the application's intended behavior, so the code narrows its effective capability:
 
 - `GmailClient` exposes a single message write: `add_labels`.
-- Every message modification sends `removeLabelIds: []`.
-- The wrapper has no archive, trash, delete, send, or label-removal method.
+- Message modifications can remove `INBOX` only when a destination label is applied.
+- The wrapper has no trash, delete, send, forward, or destination-label removal method.
 - Tests assert the exact Gmail modification body and assert that destructive method names are absent.
 - `EXPECTED_GMAIL_ADDRESS` is mandatory in production and stops execution when OAuth is connected to the wrong mailbox.
 - `DRY_RUN=true` is the default.

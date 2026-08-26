@@ -35,10 +35,10 @@ class _Service:
         return self.users_api
 
 
-def test_message_write_only_adds_labels_and_never_removes_inbox() -> None:
+def test_message_write_adds_labels_and_can_move_from_inbox() -> None:
     service = _Service()
     client = GmailClient(service)
-    client.add_labels("message-1", ["Wholesale", "Processed"])
+    client.add_labels("message-1", ["Wholesale", "Processed"], remove_inbox=True)
 
     assert service.messages_api.calls == [
         {
@@ -46,10 +46,21 @@ def test_message_write_only_adds_labels_and_never_removes_inbox() -> None:
             "id": "message-1",
             "body": {
                 "addLabelIds": ["Wholesale", "Processed"],
-                "removeLabelIds": [],
+                "removeLabelIds": ["INBOX"],
             },
         }
     ]
+
+
+def test_message_write_preserves_inbox_by_default() -> None:
+    service = _Service()
+    client = GmailClient(service)
+    client.add_labels("message-1", ["Processed"])
+
+    assert service.messages_api.calls[0]["body"] == {
+        "addLabelIds": ["Processed"],
+        "removeLabelIds": [],
+    }
 
 
 def test_wrapper_exposes_no_destructive_message_methods() -> None:

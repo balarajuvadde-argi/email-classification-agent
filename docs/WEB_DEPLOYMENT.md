@@ -33,8 +33,8 @@ each person clicks **Connect Gmail** and the backend stores only their encrypted
    transient top-level failures.
 4. A DynamoDB GSI exposes only user ID, policy hash, consent version, connection version, and
    next-run time to the dispatcher. It does not project prompts, mailbox addresses, or grants.
-5. Gmail mutations can only create/add allow-listed user labels. Every message modify request
-   uses `removeLabelIds: []`.
+5. Gmail mutations can only create/add allow-listed user labels and remove `INBOX` from
+   messages that received a destination label.
 
 ## Prerequisites
 
@@ -184,8 +184,8 @@ Use a separate staging hostname/project/secrets and verify:
 3. A prompt and label allow-list save correctly; Gmail system labels are rejected.
 4. `.eml` preview produces no Gmail write.
 5. Gmail preview produces no label creation or message modification.
-6. Reviewed apply adds only the expected destination and hidden processed labels while retaining
-   `INBOX`.
+6. Reviewed apply adds only the expected destination and hidden processed labels, and moves
+   labeled messages out of `INBOX`.
 7. Automatic mode cannot be enabled until a successful, non-empty preview of the exact policy
    and batch size.
 8. Disabling automation before a queued job writes prevents Gmail mutation.

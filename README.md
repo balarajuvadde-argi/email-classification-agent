@@ -32,10 +32,11 @@ server-controlled Miami-Dade child labels. General Miami-Dade wholesale emails c
 `<primary>/Miami-Dade/Important`. This secondary routing is determined during preview and
 carried into the reviewed apply plan.
 
-The server-controlled safety boundary is not externalized. It permits only creation and
-addition of allow-listed **user** labels, always sends an empty `removeLabelIds` list, and has
-no archive, delete, trash, send, forward, or label-removal action. Email and thread content are
-untrusted model input and cannot change this action boundary.
+The server-controlled safety boundary is not externalized. It permits creation and addition
+of allow-listed **user** labels, and removes `INBOX` only from messages that receive a
+destination label so Gmail shows them under the chosen label instead of the Inbox. It has no
+delete, trash, send, forward, or destination-label removal action. Email and thread content
+are untrusted model input and cannot change this action boundary.
 
 ## Web credential model
 
@@ -147,7 +148,7 @@ The root-domain check is boundary-safe: `mail.zillow.com` is approved; `fakezill
 
 This release has only two outcomes:
 
-- **Wholesale:** add `Wholesale` and preserve `INBOX`.
+- **Wholesale:** add `Wholesale` and move the message out of `INBOX`.
 - **Main inbox:** do not add `Wholesale`.
 
 Earlier meeting discussion mentioned additional categories, but the latest written instruction is more specific: approved platforms stay in the main inbox, and all other actual property-sales messages go to `Wholesale`. Therefore this package does not move mail into `On Market`, `Off Market`, or `News`.
@@ -171,7 +172,7 @@ Generalization tests replace each original sender with an unrelated random domai
 7. Keep obvious internal rule/setup/training messages in the main inbox.
 8. Use a structured semantic model for borderline messages and brief thread replies.
 9. Require the configured Wholesale confidence threshold, default `0.85`.
-10. Add labels only; never remove `INBOX`.
+10. Add destination labels and remove `INBOX` only for messages that receive a destination label.
 
 ## False-positive controls
 
@@ -187,12 +188,12 @@ Current-message content is the unit of action. Only earlier messages from the sa
 
 ## Message preservation and safety
 
-The Gmail wrapper only adds labels. It has no archive, move, trash, delete, send, or label-removal method. Every write uses:
+The Gmail wrapper can add labels and remove `INBOX` from messages that received a destination label. It has no trash, delete, send, forward, or destination-label removal method. A move-to-label write uses:
 
 ```json
 {
   "addLabelIds": ["..."],
-  "removeLabelIds": []
+  "removeLabelIds": ["INBOX"]
 }
 ```
 

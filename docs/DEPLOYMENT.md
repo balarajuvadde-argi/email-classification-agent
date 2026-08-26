@@ -8,7 +8,7 @@ multi-user website, do not create a shared Gmail authorized-user token file; use
 
 - Confirm the exact target Gmail address.
 - Confirm the `Wholesale` label name.
-- Confirm that adding the label while preserving `INBOX` is the desired Gmail behavior.
+- Confirm that labeled messages should be moved out of `INBOX` into their Gmail labels.
 - Enable the Gmail API in the Google Cloud project.
 - Create an OAuth desktop client and authorize the target mailbox.
 - Create an OpenAI API key.
