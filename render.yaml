@@ -1,3 +1,9 @@
+databases:
+  - name: inbox-pilot-db
+    databaseName: inbox_pilot
+    user: inbox_pilot_user
+    plan: free
+
 services:
   - type: web
     name: inbox-pilot-mvp
@@ -11,6 +17,10 @@ services:
         value: staging
       - key: MVP_MODE
         value: 'true'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inbox-pilot-db
+          property: connectionString
       - key: APP_BASE_URL
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_CONFIG_JSON
@@ -41,6 +51,18 @@ services:
         value: SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
       - key: ACQUISITION_MIAMI_DADE_ZIPS
         value: 33010,33012,33013,33014,33015,33016,33018,33030,33031,33032,33033,33034,33035,33054,33055,33056,33101,33109,33122,33125,33126,33127,33128,33129,33130,33131,33132,33133,33134,33135,33136,33137,33138,33139,33140,33141,33142,33143,33144,33145,33146,33147,33149,33150,33154,33155,33156,33157,33158,33160,33161,33162,33165,33166,33167,33168,33169,33170,33172,33173,33174,33175,33176,33177,33178,33179,33180,33181,33182,33183,33184,33185,33186,33187,33189,33190,33193,33194,33196,33231
+      - key: DEFAULT_CLASSIFICATION_LABELS
+        value: Wholesale,News
+      - key: DEFAULT_GMAIL_QUERY
+        value: in:inbox
+      - key: DEFAULT_CONFIDENCE_THRESHOLD
+        value: '0.85'
+      - key: DEFAULT_MAX_MESSAGES_PER_RUN
+        value: '10'
+      - key: DEFAULT_AUTOMATIC_ENABLED
+        value: 'true'
+      - key: SCHEDULER_CLAIM_DELAY_SECONDS
+        value: '3600'
       - key: SERVICE_NAME
         value: Inbox Pilot MVP
       - key: OPERATOR_NAME
@@ -49,6 +71,228 @@ services:
         sync: false
       - key: SUPPORT_EMAIL
         sync: false
+      - key: PRIVACY_EFFECTIVE_DATE
+        value: '2026-08-21'
+      - key: PRIVACY_NOTICE_VERSION
+        value: '2026-08-21.1'
+      - key: BACKUP_RECOVERY_DAYS
+        value: '1'
+      - key: SESSION_TTL_SECONDS
+        value: '86400'
+      - key: OAUTH_STATE_TTL_SECONDS
+        value: '600'
+      - key: ACTION_PLAN_TTL_SECONDS
+        value: '900'
+      - key: RUN_TTL_SECONDS
+        value: '86400'
+      - key: AUTOMATIC_INTERVAL_SECONDS
+        value: '900'
+      - key: WORKER_LEASE_SECONDS
+        value: '330'
+      - key: MANUAL_RUNS_PER_DAY
+        value: '10'
+      - key: EML_PREVIEWS_PER_DAY
+        value: '5'
+      - key: AUTOMATIC_RUNS_PER_DAY
+        value: '96'
+
+  - type: cron
+    name: inbox-pilot-morning-run
+    runtime: python
+    schedule: '0 14 * * *'
+    buildCommand: pip install -e .
+    startCommand: email-classifier-scheduled
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: MVP_MODE
+        value: 'true'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inbox-pilot-db
+          property: connectionString
+      - key: APP_BASE_URL
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: APP_BASE_URL
+      - key: GOOGLE_OAUTH_CLIENT_CONFIG_JSON
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: GOOGLE_OAUTH_CLIENT_CONFIG_JSON
+      - key: LOCAL_TOKEN_ENCRYPTION_KEY
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: LOCAL_TOKEN_ENCRYPTION_KEY
+      - key: OPENAI_API_KEY
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: OPENAI_API_KEY
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: PROPERTY_LOOKUP_ENABLED
+        value: 'true'
+      - key: PROPERTY_LOOKUP_TIMEOUT_SECONDS
+        value: '12'
+      - key: CANDIDATE_SCAN_WINDOW
+        value: '100'
+      - key: DEFAULT_CLASSIFICATION_LABELS
+        value: Wholesale,News
+      - key: DEFAULT_GMAIL_QUERY
+        value: in:inbox
+      - key: DEFAULT_CONFIDENCE_THRESHOLD
+        value: '0.85'
+      - key: DEFAULT_MAX_MESSAGES_PER_RUN
+        value: '10'
+      - key: DEFAULT_AUTOMATIC_ENABLED
+        value: 'true'
+      - key: SCHEDULER_CLAIM_DELAY_SECONDS
+        value: '3600'
+      - key: ACQUISITION_MIAMI_DADE_LABEL_SUFFIX
+        value: Miami-Dade
+      - key: ACQUISITION_IMPORTANT_LABEL_SUFFIX
+        value: Miami-Dade/Important
+      - key: ACQUISITION_PRICE_TARGET
+        value: '275000'
+      - key: ACQUISITION_REQUIRE_DOUBLE_LOT
+        value: 'true'
+      - key: ACQUISITION_EXCLUDED_MUNICIPALITIES
+        value: MIAMI GARDENS,OPA-LOCKA,OPALOCKA,NORTH MIAMI
+      - key: ACQUISITION_QUALIFYING_LAND_USE_TERMS
+        value: SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
+      - key: ACQUISITION_MIAMI_DADE_ZIPS
+        value: 33010,33012,33013,33014,33015,33016,33018,33030,33031,33032,33033,33034,33035,33054,33055,33056,33101,33109,33122,33125,33126,33127,33128,33129,33130,33131,33132,33133,33134,33135,33136,33137,33138,33139,33140,33141,33142,33143,33144,33145,33146,33147,33149,33150,33154,33155,33156,33157,33158,33160,33161,33162,33165,33166,33167,33168,33169,33170,33172,33173,33174,33175,33176,33177,33178,33179,33180,33181,33182,33183,33184,33185,33186,33187,33189,33190,33193,33194,33196,33231
+      - key: SERVICE_NAME
+        value: Inbox Pilot MVP
+      - key: OPERATOR_NAME
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: OPERATOR_NAME
+      - key: PRIVACY_CONTACT_EMAIL
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: PRIVACY_CONTACT_EMAIL
+      - key: SUPPORT_EMAIL
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: SUPPORT_EMAIL
+      - key: PRIVACY_EFFECTIVE_DATE
+        value: '2026-08-21'
+      - key: PRIVACY_NOTICE_VERSION
+        value: '2026-08-21.1'
+      - key: BACKUP_RECOVERY_DAYS
+        value: '1'
+      - key: SESSION_TTL_SECONDS
+        value: '86400'
+      - key: OAUTH_STATE_TTL_SECONDS
+        value: '600'
+      - key: ACTION_PLAN_TTL_SECONDS
+        value: '900'
+      - key: RUN_TTL_SECONDS
+        value: '86400'
+      - key: AUTOMATIC_INTERVAL_SECONDS
+        value: '900'
+      - key: WORKER_LEASE_SECONDS
+        value: '330'
+      - key: MANUAL_RUNS_PER_DAY
+        value: '10'
+      - key: EML_PREVIEWS_PER_DAY
+        value: '5'
+      - key: AUTOMATIC_RUNS_PER_DAY
+        value: '96'
+
+  - type: cron
+    name: inbox-pilot-evening-run
+    runtime: python
+    schedule: '0 21 * * *'
+    buildCommand: pip install -e .
+    startCommand: email-classifier-scheduled
+    envVars:
+      - key: APP_ENV
+        value: staging
+      - key: MVP_MODE
+        value: 'true'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inbox-pilot-db
+          property: connectionString
+      - key: APP_BASE_URL
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: APP_BASE_URL
+      - key: GOOGLE_OAUTH_CLIENT_CONFIG_JSON
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: GOOGLE_OAUTH_CLIENT_CONFIG_JSON
+      - key: LOCAL_TOKEN_ENCRYPTION_KEY
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: LOCAL_TOKEN_ENCRYPTION_KEY
+      - key: OPENAI_API_KEY
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: OPENAI_API_KEY
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: PROPERTY_LOOKUP_ENABLED
+        value: 'true'
+      - key: PROPERTY_LOOKUP_TIMEOUT_SECONDS
+        value: '12'
+      - key: CANDIDATE_SCAN_WINDOW
+        value: '100'
+      - key: DEFAULT_CLASSIFICATION_LABELS
+        value: Wholesale,News
+      - key: DEFAULT_GMAIL_QUERY
+        value: in:inbox
+      - key: DEFAULT_CONFIDENCE_THRESHOLD
+        value: '0.85'
+      - key: DEFAULT_MAX_MESSAGES_PER_RUN
+        value: '10'
+      - key: DEFAULT_AUTOMATIC_ENABLED
+        value: 'true'
+      - key: SCHEDULER_CLAIM_DELAY_SECONDS
+        value: '3600'
+      - key: ACQUISITION_MIAMI_DADE_LABEL_SUFFIX
+        value: Miami-Dade
+      - key: ACQUISITION_IMPORTANT_LABEL_SUFFIX
+        value: Miami-Dade/Important
+      - key: ACQUISITION_PRICE_TARGET
+        value: '275000'
+      - key: ACQUISITION_REQUIRE_DOUBLE_LOT
+        value: 'true'
+      - key: ACQUISITION_EXCLUDED_MUNICIPALITIES
+        value: MIAMI GARDENS,OPA-LOCKA,OPALOCKA,NORTH MIAMI
+      - key: ACQUISITION_QUALIFYING_LAND_USE_TERMS
+        value: SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
+      - key: ACQUISITION_MIAMI_DADE_ZIPS
+        value: 33010,33012,33013,33014,33015,33016,33018,33030,33031,33032,33033,33034,33035,33054,33055,33056,33101,33109,33122,33125,33126,33127,33128,33129,33130,33131,33132,33133,33134,33135,33136,33137,33138,33139,33140,33141,33142,33143,33144,33145,33146,33147,33149,33150,33154,33155,33156,33157,33158,33160,33161,33162,33165,33166,33167,33168,33169,33170,33172,33173,33174,33175,33176,33177,33178,33179,33180,33181,33182,33183,33184,33185,33186,33187,33189,33190,33193,33194,33196,33231
+      - key: SERVICE_NAME
+        value: Inbox Pilot MVP
+      - key: OPERATOR_NAME
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: OPERATOR_NAME
+      - key: PRIVACY_CONTACT_EMAIL
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: PRIVACY_CONTACT_EMAIL
+      - key: SUPPORT_EMAIL
+        fromService:
+          type: web
+          name: inbox-pilot-mvp
+          envVarKey: SUPPORT_EMAIL
       - key: PRIVACY_EFFECTIVE_DATE
         value: '2026-08-21'
       - key: PRIVACY_NOTICE_VERSION

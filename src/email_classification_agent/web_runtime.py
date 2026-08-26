@@ -20,6 +20,7 @@ from .multitenant_store import (
     DynamoDbMultiTenantStore,
     InMemoryMultiTenantStore,
     MultiTenantStore,
+    PostgresMultiTenantStore,
 )
 from .property_appraiser import MiamiDadePropertyClient
 from .token_security import (
@@ -31,7 +32,13 @@ from .token_security import (
 )
 from .universal_agent import UniversalClassificationAgent
 from .universal_classifier import UniversalEmailClassifier
-from .universal_models import ActionPlan, RunRecord, UniversalOutcome, UserRecord
+from .universal_models import (
+    ActionPlan,
+    ClassificationPolicy,
+    RunRecord,
+    UniversalOutcome,
+    UserRecord,
+)
 from .web_config import WebSettings, load_google_client_config, load_openai_api_key
 
 #LOGGER = logging.get#LOGGER(__name__)
@@ -105,6 +112,8 @@ class WebRuntime:
 
     @staticmethod
     def _build_store(settings: WebSettings) -> MultiTenantStore:
+        if settings.database_url:
+            return PostgresMultiTenantStore(settings.database_url)
         if settings.mvp_mode:
             return InMemoryMultiTenantStore()
         if settings.table_name:
@@ -220,7 +229,7 @@ class WebRuntime:
         now = int(time.time())
         encrypted = self.cipher.encrypt(user_id, credentials_to_grant(credentials))
         connection_version = secrets.token_urlsafe(24)
-        return self.store.upsert_user_connection(
+        user = self.store.upsert_user_connection(
             user_id,
             mailbox,
             encrypted,
@@ -230,6 +239,7 @@ class WebRuntime:
             connection_version,
             expected_connection_version,
         )
+        return self._ensure_default_policy(user)
 
     def authenticate_existing_user(
         self,
@@ -245,6 +255,30 @@ class WebRuntime:
         if user is None or user.email != claimed_email:
             raise RuntimeError("No existing Gmail connection was found for this account")
         return user
+
+    def _default_policy(self) -> ClassificationPolicy:
+        return ClassificationPolicy(
+            prompt=self.settings.default_classification_prompt,
+            labels=list(self.settings.default_classification_labels),
+            gmail_query=self.settings.default_gmail_query,
+            confidence_threshold=self.settings.default_confidence_threshold,
+            max_messages_per_run=self.settings.default_max_messages_per_run,
+            automatic_enabled=self.settings.default_automatic_enabled,
+        )
+
+    def _ensure_default_policy(self, user: UserRecord) -> UserRecord:
+        if user.policy is not None:
+            return user
+        policy = self._default_policy()
+        updated = replace(
+            user,
+            policy=policy,
+            updated_at=int(time.time()),
+            next_run_at=0 if policy.automatic_enabled else user.next_run_at,
+            last_previewed_activation_hash=policy.activation_hash,
+        )
+        self.store.put_user(updated)
+        return updated
 
     def accept_current_notice(self, user: UserRecord) -> UserRecord:
         current = self.store.get_user(user.user_id)
