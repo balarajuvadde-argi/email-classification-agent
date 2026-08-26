@@ -3,13 +3,13 @@ import time
 
 import pytest
 
+from email_classification_agent.property_appraiser import PropertyRecord
 from email_classification_agent.universal_agent import UniversalClassificationAgent
 from email_classification_agent.universal_models import (
     ActionPlan,
     ClassificationPolicy,
     UniversalDecision,
 )
-from email_classification_agent.property_appraiser import PropertyRecord
 
 
 def _encoded(value: str) -> str:
@@ -137,6 +137,31 @@ def test_miami_dade_zip_adds_derived_sublabel_on_preview() -> None:
     assert gmail.writes == []
 
 
+def test_miami_dade_zip_and_sublabels_can_be_changed_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("ACQUISITION_MIAMI_DADE_ZIPS", "99999")
+    monkeypatch.setenv("ACQUISITION_MIAMI_DADE_LABEL_SUFFIX", "Target-County")
+    gmail = _Gmail()
+    resource = _wholesale_resource()
+    resource["payload"]["headers"][1]["value"] = "Wholesale deal in 99999"
+    resource["payload"]["body"]["data"] = _encoded("Property offer in test county 99999")
+    gmail.get_message = lambda message_id: resource
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesaler",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+    ).preview(_wholesale_policy())
+
+    assert report.outcomes[0].secondary_label == "Wholesaler/Target-County"
+
+
 def test_one_matching_zip_routes_email_with_other_non_miami_zips() -> None:
     gmail = _Gmail()
     resource = _wholesale_resource()
@@ -225,6 +250,47 @@ def test_qualified_miami_dade_property_routes_to_important_sublabel() -> None:
     ]
     assert len(property_client.calls) == 1
     assert all("Qualified" not in call[0] for call in gmail.ensure_calls)
+
+
+def test_important_sublabel_can_be_changed_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("ACQUISITION_IMPORTANT_LABEL_SUFFIX", "Miami-Dade/Hot")
+    gmail = _Gmail()
+    gmail.get_message = _wholesale_resource
+    property_client = _PropertyClient(
+        [
+            PropertyRecord(
+                address="16225 NE 2nd Ave",
+                asking_price=250_000,
+                folio="30-2218-007-2720",
+                municipality="UNINCORPORATED COUNTY",
+                land_use="RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                legal_description="LOTS 4 & 5",
+                lot_size_sqft=10_000,
+                lookup_status="verified",
+                qualifies=True,
+                is_folio_30=True,
+                has_double_lot=True,
+                is_unincorporated=True,
+                reasons=("folio starts with 30 (unincorporated Miami-Dade)",),
+            )
+        ]
+    )
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Wholesale",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+        property_client=property_client,
+    ).preview(_wholesale_current_policy())
+
+    assert report.outcomes[0].secondary_label == "Wholesale/Miami-Dade/Hot"
 
 
 def test_property_lookup_only_runs_after_miami_dade_zip_match() -> None:
@@ -377,6 +443,25 @@ def test_preview_processes_candidates_newest_first_even_when_gmail_ids_are_unord
 
     assert [outcome.message_id for outcome in report.outcomes] == ["new", "middle"]
     assert [message.message_id for message in classifier.calls] == ["new", "middle"]
+
+
+def test_candidate_scan_window_can_be_changed_from_environment(monkeypatch) -> None:
+    monkeypatch.setenv("CANDIDATE_SCAN_WINDOW", "7")
+    gmail = _Gmail()
+    classifier = _Classifier(
+        UniversalDecision(label="Finance", confidence=0.96, reason="Invoice", evidence=[])
+    )
+    policy = ClassificationPolicy(
+        prompt="Label all invoices and payment receipts as Finance.",
+        labels=["Finance"],
+        max_messages_per_run=2,
+    )
+
+    UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).preview(policy)
+
+    assert gmail.max_results == 7
 
 
 def test_apply_reviewed_plan_adds_destination_and_processed_labels_only() -> None:

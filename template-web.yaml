@@ -65,6 +65,47 @@ Parameters:
     Default: 86400
     MinValue: 3600
     MaxValue: 604800
+  PropertyLookupEnabled:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  PropertyLookupTimeoutSeconds:
+    Type: Number
+    Default: 12
+    MinValue: 1
+    MaxValue: 60
+  CandidateScanWindow:
+    Type: Number
+    Default: 100
+    MinValue: 1
+    MaxValue: 500
+  AcquisitionMiamiDadeLabelSuffix:
+    Type: String
+    Default: Miami-Dade
+    MinLength: 1
+    MaxLength: 80
+  AcquisitionImportantLabelSuffix:
+    Type: String
+    Default: Miami-Dade/Important
+    MinLength: 1
+    MaxLength: 120
+  AcquisitionPriceTarget:
+    Type: Number
+    Default: 275000
+    MinValue: 0
+  AcquisitionRequireDoubleLot:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+  AcquisitionExcludedMunicipalities:
+    Type: String
+    Default: MIAMI GARDENS,OPA-LOCKA,OPALOCKA,NORTH MIAMI
+  AcquisitionQualifyingLandUseTerms:
+    Type: String
+    Default: SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
+  AcquisitionMiamiDadeZips:
+    Type: String
+    Default: 33010,33012,33013,33014,33015,33016,33018,33030,33031,33032,33033,33034,33035,33054,33055,33056,33101,33109,33122,33125,33126,33127,33128,33129,33130,33131,33132,33133,33134,33135,33136,33137,33138,33139,33140,33141,33142,33143,33144,33145,33146,33147,33149,33150,33154,33155,33156,33157,33158,33160,33161,33162,33165,33166,33167,33168,33169,33170,33172,33173,33174,33175,33176,33177,33178,33179,33180,33181,33182,33183,33184,33185,33186,33187,33189,33190,33193,33194,33196,33231
 
 Globals:
   Function:
@@ -99,6 +140,16 @@ Globals:
         PRIVACY_EFFECTIVE_DATE: !Ref PrivacyEffectiveDate
         PRIVACY_NOTICE_VERSION: !Ref PrivacyNoticeVersion
         BACKUP_RECOVERY_DAYS: !Ref BackupRecoveryDays
+        PROPERTY_LOOKUP_ENABLED: !Ref PropertyLookupEnabled
+        PROPERTY_LOOKUP_TIMEOUT_SECONDS: !Sub ${PropertyLookupTimeoutSeconds}
+        CANDIDATE_SCAN_WINDOW: !Sub ${CandidateScanWindow}
+        ACQUISITION_MIAMI_DADE_LABEL_SUFFIX: !Ref AcquisitionMiamiDadeLabelSuffix
+        ACQUISITION_IMPORTANT_LABEL_SUFFIX: !Ref AcquisitionImportantLabelSuffix
+        ACQUISITION_PRICE_TARGET: !Sub ${AcquisitionPriceTarget}
+        ACQUISITION_REQUIRE_DOUBLE_LOT: !Ref AcquisitionRequireDoubleLot
+        ACQUISITION_EXCLUDED_MUNICIPALITIES: !Ref AcquisitionExcludedMunicipalities
+        ACQUISITION_QUALIFYING_LAND_USE_TERMS: !Ref AcquisitionQualifyingLandUseTerms
+        ACQUISITION_MIAMI_DADE_ZIPS: !Ref AcquisitionMiamiDadeZips
 
 Resources:
   TokenKey:

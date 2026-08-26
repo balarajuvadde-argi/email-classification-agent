@@ -100,6 +100,36 @@ def test_double_lot_above_price_target_is_not_target_match():
     assert any("above $275,000 target" in r for r in records[0].reasons)
 
 
+def test_price_target_can_be_changed_from_environment(monkeypatch):
+    monkeypatch.setenv("ACQUISITION_PRICE_TARGET", "400000")
+    client = _FakePropertyClient(legal="SEMINOLE LAWN PB 9-171 LOTS 4 & 5 BLK 2")
+
+    records = client.lookup_email(_message("16225 NE 2nd Ave Miami FL 33162 $362,500"))
+
+    assert records[0].qualifies is True
+    assert any("at or below $400,000 target" in r for r in records[0].reasons)
+
+
+def test_double_lot_requirement_can_be_changed_from_environment(monkeypatch):
+    monkeypatch.setenv("ACQUISITION_REQUIRE_DOUBLE_LOT", "false")
+    client = _FakePropertyClient(legal="SEMINOLE LAWN PB 9-171 LOT 1 BLK 2")
+
+    records = client.lookup_email(_message("3300 NW 50th St Miami FL 33142 $250,000"))
+
+    assert records[0].has_double_lot is False
+    assert records[0].qualifies is True
+
+
+def test_excluded_municipalities_can_be_changed_from_environment(monkeypatch):
+    monkeypatch.setenv("ACQUISITION_EXCLUDED_MUNICIPALITIES", "UNINCORPORATED COUNTY")
+    client = _FakePropertyClient()
+
+    records = client.lookup_email(_message("16225 NE 2nd Ave Miami FL 33162 $250,000"))
+
+    assert records[0].qualifies is False
+    assert any("excluded municipality: UNINCORPORATED COUNTY" in r for r in records[0].reasons)
+
+
 def test_plural_lots_with_separator_is_double_lot():
     client = _FakePropertyClient(
         legal=(

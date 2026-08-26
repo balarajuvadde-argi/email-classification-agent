@@ -125,6 +125,21 @@ reported as unverified and cannot create the Important child label. Only records
 the configured acquisition criteria are routed to the Important child folder. Review the
 portal's terms, rate limits, and acceptable-use requirements before public use.
 
+The default acquisition settings match the current Miami-Dade workflow. Change these Render
+environment variables later if the client changes the target criteria:
+
+```text
+ACQUISITION_MIAMI_DADE_ZIPS=33010,33012,...
+ACQUISITION_MIAMI_DADE_LABEL_SUFFIX=Miami-Dade
+ACQUISITION_IMPORTANT_LABEL_SUFFIX=Miami-Dade/Important
+ACQUISITION_PRICE_TARGET=275000
+ACQUISITION_REQUIRE_DOUBLE_LOT=true
+ACQUISITION_EXCLUDED_MUNICIPALITIES=MIAMI GARDENS,OPA-LOCKA,OPALOCKA,NORTH MIAMI
+ACQUISITION_QUALIFYING_LAND_USE_TERMS=SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
+PROPERTY_LOOKUP_TIMEOUT_SECONDS=12
+CANDIDATE_SCAN_WINDOW=100
+```
+
 ## 5. Finish Google redirect configuration
 
 After Render gives the service URL, update the Google OAuth client:

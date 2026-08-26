@@ -62,10 +62,10 @@ their Google password or OAuth token.
 The acquisition workflow can verify wholesale property addresses through the Miami-Dade
 Property Appraiser public search service. Its initial qualification rule is intentionally
 strict: the portal record must have a folio beginning with `30`, be a qualifying residential
-record, not be in an excluded municipality, and either have an email asking price at or below
-$275,000 or have double-lot/multiple-lot support for price flexibility. Verification results
-are shown in the run report; an incomplete portal lookup never qualifies or writes the
-`<primary>/Miami-Dade/Important` label.
+record, not be in an excluded municipality, have an email asking price at or below the
+configured target, and show double-lot/multiple-lot support when that requirement is enabled.
+Verification results are shown in the run report; an incomplete portal lookup never qualifies
+or writes the `<primary>/Miami-Dade/Important` label.
 
 When `PROPERTY_LOOKUP_ENABLED=true`, the worker searches the Miami-Dade Property Appraiser
 public service for each extracted property address in a wholesale email. It checks the folio
@@ -73,6 +73,19 @@ prefix, excluded municipality, land use, email asking price, and full legal desc
 `<primary>/Miami-Dade/Important` label is created only when the website record is verified
 and the configured acquisition criteria pass; failed lookups remain unverified and are never
 treated as important targets.
+
+The acquisition values are deployment configuration, not code constants. Change them through
+environment variables or SAM parameters:
+
+- `ACQUISITION_MIAMI_DADE_ZIPS`
+- `ACQUISITION_MIAMI_DADE_LABEL_SUFFIX`
+- `ACQUISITION_IMPORTANT_LABEL_SUFFIX`
+- `ACQUISITION_PRICE_TARGET`
+- `ACQUISITION_REQUIRE_DOUBLE_LOT`
+- `ACQUISITION_EXCLUDED_MUNICIPALITIES`
+- `ACQUISITION_QUALIFYING_LAND_USE_TERMS`
+- `PROPERTY_LOOKUP_TIMEOUT_SECONDS`
+- `CANDIDATE_SCAN_WINDOW`
 
 ## Web quick start
 

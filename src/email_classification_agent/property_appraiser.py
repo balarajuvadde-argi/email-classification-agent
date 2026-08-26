@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-# import logging
+import os
 import re
 import urllib.parse
 import urllib.request
@@ -14,7 +14,11 @@ from .models import ParsedEmail
 # LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://apps.miamidadepa.gov/PApublicServiceProxy/PaServicesProxy.ashx"
-EXCLUDED_MUNICIPALITIES = frozenset({"MIAMI GARDENS", "OPA-LOCKA", "OPALOCKA", "NORTH MIAMI"})
+DEFAULT_EXCLUDED_MUNICIPALITIES = frozenset({"MIAMI GARDENS", "OPA-LOCKA", "OPALOCKA", "NORTH MIAMI"})
+DEFAULT_PRICE_TARGET = 275_000.0
+DEFAULT_REQUIRE_DOUBLE_LOT = True
+DEFAULT_QUALIFYING_LAND_USE_TERMS = ("SINGLE FAMILY", "DUPLEX", "2 UNITS", "TOWNHOUSE")
+DEFAULT_PROPERTY_LOOKUP_TIMEOUT_SECONDS = 12.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -38,8 +42,16 @@ class PropertyRecord:
 
 
 class MiamiDadePropertyClient:
-    def __init__(self, *, timeout_seconds: float = 12.0) -> None:
-        self._timeout_seconds = timeout_seconds
+    def __init__(self, *, timeout_seconds: float | None = None) -> None:
+        self._timeout_seconds = (
+            timeout_seconds
+            if timeout_seconds is not None
+            else _env_float(
+                "PROPERTY_LOOKUP_TIMEOUT_SECONDS",
+                DEFAULT_PROPERTY_LOOKUP_TIMEOUT_SECONDS,
+                minimum=1.0,
+            )
+        )
 
     def lookup_email(self, message: ParsedEmail) -> list[PropertyRecord]:
         candidates = _extract_candidates(message)
@@ -84,7 +96,7 @@ class MiamiDadePropertyClient:
                 }
             )
             return _record_from_detail(address, asking_price, folio, match, detail)
-        except Exception as exc:
+        except Exception:
             # LOGGER.warning("Miami-Dade PA lookup exception for '%s': %s", address, exc)
             return _unverified(address, asking_price, "lookup_failed")
 
@@ -156,6 +168,60 @@ def _money_value(value: str) -> float | None:
         return None
 
 
+def _env_list(name: str, default: tuple[str, ...] | frozenset[str]) -> tuple[str, ...]:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return tuple(default)
+    values = tuple(item.strip() for item in raw.split(",") if item.strip())
+    return values or tuple(default)
+
+
+def _env_float(name: str, default: float, *, minimum: float | None = None) -> float:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        value = float(raw.replace(",", "").strip())
+    except ValueError as exc:
+        raise ValueError(f"{name} must be a number") from exc
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{name} must be at least {minimum:g}")
+    return value
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    value = raw.strip().casefold()
+    if value in {"1", "true", "yes", "y", "on"}:
+        return True
+    if value in {"0", "false", "no", "n", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
+def _excluded_municipalities() -> frozenset[str]:
+    return frozenset(
+        item.upper() for item in _env_list("ACQUISITION_EXCLUDED_MUNICIPALITIES", DEFAULT_EXCLUDED_MUNICIPALITIES)
+    )
+
+
+def _qualifying_land_use_terms() -> tuple[str, ...]:
+    return tuple(
+        item.upper()
+        for item in _env_list("ACQUISITION_QUALIFYING_LAND_USE_TERMS", DEFAULT_QUALIFYING_LAND_USE_TERMS)
+    )
+
+
+def _price_target() -> float:
+    return _env_float("ACQUISITION_PRICE_TARGET", DEFAULT_PRICE_TARGET, minimum=0)
+
+
+def _require_double_lot() -> bool:
+    return _env_bool("ACQUISITION_REQUIRE_DOUBLE_LOT", DEFAULT_REQUIRE_DOUBLE_LOT)
+
+
 def _unverified(address: str, asking_price: float | None, status: str) -> PropertyRecord:
     # LOGGER.info("Miami-Dade PA: Address '%s' unverified (status=%s)", address, status)
     return PropertyRecord(
@@ -191,7 +257,7 @@ def _record_from_detail(
 
     is_folio_30 = folio.startswith("30-")
     is_unincorporated = is_folio_30 or "UNINCORPORATED" in municipality
-    is_excluded_muni = municipality in EXCLUDED_MUNICIPALITIES
+    is_excluded_muni = municipality in _excluded_municipalities()
 
     # Double lot detection from the official legal description only. Avoid false
     # positives like "LOT 1 BLK 2 LOT SIZE 50 X 110", where the second number is
@@ -204,14 +270,15 @@ def _record_from_detail(
         )
     )
 
-    is_single_family_or_duplex = (
-        "SINGLE FAMILY" in land_use.upper()
-        or "DUPLEX" in land_use.upper()
-        or "2 UNITS" in land_use.upper()
-        or "TOWNHOUSE" in land_use.upper()
+    land_use_upper = land_use.upper()
+    is_single_family_or_duplex = any(
+        term in land_use_upper for term in _qualifying_land_use_terms()
     )
 
-    price_under_target = asking_price is not None and asking_price <= 275_000
+    price_target = _price_target()
+    require_double_lot = _require_double_lot()
+    target_display = f"${price_target:,.0f}"
+    price_under_target = asking_price is not None and asking_price <= price_target
     price_specified = asking_price is not None
 
     reasons: list[str] = []
@@ -233,9 +300,9 @@ def _record_from_detail(
         reasons.append(f"qualifying zoning/land use: {land_use}")
 
     if price_under_target:
-        reasons.append(f"asking price ${asking_price:,.0f} is under $275,000 target")
+        reasons.append(f"asking price ${asking_price:,.0f} is at or below {target_display} target")
     elif price_specified:
-        reasons.append(f"asking price ${asking_price:,.0f} is above $275,000 target")
+        reasons.append(f"asking price ${asking_price:,.0f} is above {target_display} target")
     else:
         reasons.append("asking price was not found in the email")
 
@@ -249,7 +316,7 @@ def _record_from_detail(
         is_folio_30
         and not is_excluded_muni
         and is_single_family_or_duplex
-        and has_double_lot
+        and (has_double_lot or not require_double_lot)
         and price_under_target
     )
 

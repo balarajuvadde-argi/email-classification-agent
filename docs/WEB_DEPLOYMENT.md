@@ -166,6 +166,12 @@ Supply:
 - `AlarmNotificationTopicArn`: monitored SNS topic ARN
 - `ScheduleExpression`: dispatcher cadence, default five minutes
 - `RunRetentionSeconds`: default 24 hours
+- `PropertyLookupEnabled`, `PropertyLookupTimeoutSeconds`, and `CandidateScanWindow`
+- Acquisition routing/qualification parameters:
+  `AcquisitionMiamiDadeZips`, `AcquisitionMiamiDadeLabelSuffix`,
+  `AcquisitionImportantLabelSuffix`, `AcquisitionPriceTarget`,
+  `AcquisitionRequireDoubleLot`, `AcquisitionExcludedMunicipalities`, and
+  `AcquisitionQualifyingLandUseTerms`
 
 The stack maps the HTTP API to the Route 53 hostname, requires TLS 1.2, and disables the default
 `execute-api` endpoint. The user-facing URL and OAuth cookie/callback origin therefore cannot

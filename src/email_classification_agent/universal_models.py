@@ -42,7 +42,7 @@ class ClassificationPolicy(BaseModel):
         max_length=500,
     )
     confidence_threshold: float = Field(default=0.85, ge=0.5, le=1.0)
-    max_messages_per_run: int = Field(default=10, ge=1, le=10)
+    max_messages_per_run: int = Field(default=100, ge=1, le=100)
     automatic_enabled: bool = False
 
     @field_validator("prompt", "gmail_query", mode="before")

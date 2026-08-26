@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import secrets
 import time
 import urllib.parse

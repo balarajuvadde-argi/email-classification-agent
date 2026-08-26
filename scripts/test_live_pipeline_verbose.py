@@ -1,6 +1,7 @@
 import os
 import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 if sys.platform == "win32":
@@ -15,11 +16,15 @@ if str(SRC) not in sys.path:
 
 load_dotenv(ROOT / ".env", override=True)
 
-from email_classification_agent.email_parser import parse_eml
-from email_classification_agent.property_appraiser import MiamiDadePropertyClient
-from email_classification_agent.universal_classifier import UniversalEmailClassifier, BASE_INSTRUCTIONS
-from email_classification_agent.universal_models import ClassificationPolicy
-from email_classification_agent.universal_agent import _miami_dade_label
+from email_classification_agent.email_parser import parse_eml  # noqa: E402
+from email_classification_agent.property_appraiser import MiamiDadePropertyClient  # noqa: E402
+from email_classification_agent.universal_agent import _miami_dade_label  # noqa: E402
+from email_classification_agent.universal_classifier import (  # noqa: E402
+    BASE_INSTRUCTIONS,
+    UniversalEmailClassifier,
+)
+from email_classification_agent.universal_models import ClassificationPolicy  # noqa: E402
+
 
 def test_verbose(eml_path: str):
     print("=" * 80)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# import logging
+import os
 import re
 from collections.abc import Callable
 
@@ -17,7 +17,7 @@ from .universal_models import (
 )
 
 # LOGGER = logging.getLogger(__name__)
-MIAMI_DADE_ZIPS = frozenset(
+DEFAULT_MIAMI_DADE_ZIPS = frozenset(
     [
         "33010", "33012", "33013", "33014", "33015", "33016", "33018", "33030",
         "33031", "33032", "33033", "33034", "33035", "33054", "33055", "33056",
@@ -31,23 +31,75 @@ MIAMI_DADE_ZIPS = frozenset(
         "33186", "33187", "33189", "33190", "33193", "33194", "33196", "33231",
     ]
 )
-MIAMI_DADE_IMPORTANT_SUFFIX = "Miami-Dade/Important"
+MIAMI_DADE_ZIPS = DEFAULT_MIAMI_DADE_ZIPS
+DEFAULT_MIAMI_DADE_LABEL_SUFFIX = "Miami-Dade"
+DEFAULT_MIAMI_DADE_IMPORTANT_SUFFIX = "Miami-Dade/Important"
+DEFAULT_CANDIDATE_SCAN_WINDOW = 100
+
+
+def _env_list(name: str, default: frozenset[str] | tuple[str, ...]) -> tuple[str, ...]:
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return tuple(default)
+    values = tuple(item.strip() for item in raw.split(",") if item.strip())
+    return values or tuple(default)
+
+
+def _configured_miami_dade_zips() -> tuple[str, ...]:
+    values = _env_list("ACQUISITION_MIAMI_DADE_ZIPS", DEFAULT_MIAMI_DADE_ZIPS)
+    invalid = [value for value in values if not re.fullmatch(r"\d{5}", value)]
+    if invalid:
+        raise ValueError(
+            "ACQUISITION_MIAMI_DADE_ZIPS must be a comma-separated list of 5-digit ZIP codes"
+        )
+    return values
+
+
+def _clean_label_suffix(value: str, *, name: str) -> str:
+    cleaned = value.strip().strip("/")
+    if not cleaned:
+        raise ValueError(f"{name} must not be empty")
+    if any(part.strip() == "" for part in cleaned.split("/")):
+        raise ValueError(f"{name} must not contain empty label path segments")
+    return cleaned
+
+
+def _miami_dade_label_suffix() -> str:
+    raw = os.getenv("ACQUISITION_MIAMI_DADE_LABEL_SUFFIX") or DEFAULT_MIAMI_DADE_LABEL_SUFFIX
+    return _clean_label_suffix(raw, name="ACQUISITION_MIAMI_DADE_LABEL_SUFFIX")
+
+
+def _important_label_suffix() -> str:
+    raw = os.getenv("ACQUISITION_IMPORTANT_LABEL_SUFFIX") or DEFAULT_MIAMI_DADE_IMPORTANT_SUFFIX
+    return _clean_label_suffix(raw, name="ACQUISITION_IMPORTANT_LABEL_SUFFIX")
+
+
+def _candidate_scan_window(message_limit: int) -> int:
+    raw = os.getenv("CANDIDATE_SCAN_WINDOW")
+    if raw is None or raw.strip() == "":
+        configured = DEFAULT_CANDIDATE_SCAN_WINDOW
+    else:
+        try:
+            configured = int(raw.strip())
+        except ValueError as exc:
+            raise ValueError("CANDIDATE_SCAN_WINDOW must be an integer") from exc
+    return min(500, max(message_limit, configured))
 
 
 def _miami_dade_label(primary_label: str | None, message: ParsedEmail) -> str | None:
     if not primary_label or primary_label.casefold() not in {"wholesale", "wholesaler"}:
         return None
     current_text = f"{message.subject} {message.body_text}"
-    if any(re.search(rf"(?<!\d){zip_code}(?!\d)", current_text) for zip_code in MIAMI_DADE_ZIPS):
-        return f"{primary_label}/Miami-Dade"
+    if any(re.search(rf"(?<!\d){zip_code}(?!\d)", current_text) for zip_code in _configured_miami_dade_zips()):
+        return f"{primary_label}/{_miami_dade_label_suffix()}"
     return None
 
 
 def _secondary_label_chain(primary_label: str | None, secondary_label: str | None) -> tuple[str, ...]:
     if not primary_label or not secondary_label:
         return ()
-    important_label = f"{primary_label}/{MIAMI_DADE_IMPORTANT_SUFFIX}"
-    miami_dade_label = f"{primary_label}/Miami-Dade"
+    important_label = f"{primary_label}/{_important_label_suffix()}"
+    miami_dade_label = f"{primary_label}/{_miami_dade_label_suffix()}"
     if secondary_label.casefold() == important_label.casefold():
         return (miami_dade_label, important_label)
     return (secondary_label,)
@@ -145,8 +197,8 @@ class UniversalClassificationAgent:
                     continue
                 proposed_label = exact_label
                 valid_secondary_labels = {
-                    f"{proposed_label}/miami-dade".casefold(),
-                    f"{proposed_label}/{MIAMI_DADE_IMPORTANT_SUFFIX}".casefold(),
+                    f"{proposed_label}/{_miami_dade_label_suffix()}".casefold(),
+                    f"{proposed_label}/{_important_label_suffix()}".casefold(),
                 }
                 if secondary_label and secondary_label.casefold() not in valid_secondary_labels:
                     secondary_label = None
@@ -204,7 +256,7 @@ class UniversalClassificationAgent:
                     else "marked_processed_without_destination"
                 )
                 report.outcomes.append(outcome)
-            except Exception as exc:  # noqa: BLE001 - isolate each Gmail message
+            except Exception:  # noqa: BLE001 - isolate each Gmail message
                 # LOGGER.error(
                 #     "Failed to apply labels to Gmail message %s (%s)",
                 #     outcome.message_id,
@@ -256,7 +308,7 @@ class UniversalClassificationAgent:
         )
         self._operation_guard()
         message_limit = policy.max_messages_per_run
-        candidate_limit = min(100, max(message_limit * 5, message_limit))
+        candidate_limit = _candidate_scan_window(message_limit)
         message_ids = self._gmail.list_message_ids(query, candidate_limit)
         messages = self._ordered_messages(message_ids)[:message_limit]
         for message in messages:
@@ -310,7 +362,7 @@ class UniversalClassificationAgent:
                 has_qualified = any(record.get("qualifies") for record in property_records)
 
                 if has_qualified:
-                    secondary_label = f"{proposed_label}/{MIAMI_DADE_IMPORTANT_SUFFIX}"
+                    secondary_label = f"{proposed_label}/{_important_label_suffix()}"
 
                 should_process = (
                     decision.label is None
@@ -359,7 +411,7 @@ class UniversalClassificationAgent:
                 )
             except ProviderClassificationError:
                 raise
-            except Exception as exc:  # noqa: BLE001 - isolate each Gmail message
+            except Exception:  # noqa: BLE001 - isolate each Gmail message
                 # LOGGER.error(
                 #     "Failed to classify Gmail message %s (%s)",
                 #     message.message_id,
