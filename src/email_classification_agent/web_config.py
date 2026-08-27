@@ -13,19 +13,25 @@ from .config import secret_json
 
 DEFAULT_CLASSIFICATION_PROMPT = (
     "Classify inbound emails using these rules:\n\n"
-    "1. Label real estate sales opportunity emails as Wholesale.\n"
-    "This includes property offers, listings, off-market deals, assignment contracts, "
-    "disposition blasts, deal alerts, JV/property pitches, land or lot offers, and "
-    "emails advertising one or more properties for sale.\n\n"
-    "2. Label news-related emails as News.\n"
+    "1. Label public listing-platform property emails as Acquisitions/On Market.\n"
+    "This includes Zillow, Redfin, MLS/Matrix, OneHome, and similar official listing "
+    "alerts or saved-search emails that contain active listings, new listings, price "
+    "changes, MLS numbers, property addresses, or for-sale search results.\n\n"
+    "2. Label non-platform real estate sales opportunity emails as Acquisitions/Wholesale.\n"
+    "This includes property offers, off-market deals, assignment contracts, disposition "
+    "blasts, deal alerts, JV/property pitches, land or lot offers, and emails advertising "
+    "one or more properties for sale when they do not come from Zillow, Redfin, MLS/Matrix, "
+    "OneHome, or another official on-market listing source.\n\n"
+    "3. Label news-related emails as News.\n"
     "News includes newsletters, article digests, headlines, economic updates, political "
     "updates, business news, market commentary, industry updates, magazine emails, "
     "publisher emails, and editorial content.\n\n"
-    "3. If an email mentions real estate only as news or commentary, label it News, not "
-    "Wholesale.\n\n"
-    "4. Do not label ordinary transactional emails, meeting invites, account/security "
+    "4. If an email mentions real estate only as news or commentary, label it News, not "
+    "Acquisitions/Wholesale or Acquisitions/On Market.\n\n"
+    "5. Do not label ordinary transactional emails, meeting invites, account/security "
     "emails, invoices, software notifications, personal emails, or ambiguous emails.\n\n"
-    "5. If the email does not clearly match Wholesale or News, leave it unlabeled."
+    "6. If the email does not clearly match Acquisitions/On Market, "
+    "Acquisitions/Wholesale, or News, leave it unlabeled."
 )
 
 
@@ -69,7 +75,11 @@ class WebSettings:
     mvp_mode: bool = False
     property_lookup_enabled: bool = False
     default_classification_prompt: str = DEFAULT_CLASSIFICATION_PROMPT
-    default_classification_labels: tuple[str, ...] = ("Wholesale", "News")
+    default_classification_labels: tuple[str, ...] = (
+        "Acquisitions/On Market",
+        "Acquisitions/Wholesale",
+        "News",
+    )
     default_gmail_query: str = "in:inbox"
     default_confidence_threshold: float = 0.85
     default_max_messages_per_run: int = 10
@@ -173,7 +183,10 @@ class WebSettings:
             ).strip(),
             default_classification_labels=tuple(
                 label.strip()
-                for label in (os.getenv("DEFAULT_CLASSIFICATION_LABELS") or "Wholesale,News").split(",")
+                for label in (
+                    os.getenv("DEFAULT_CLASSIFICATION_LABELS")
+                    or "Acquisitions/On Market,Acquisitions/Wholesale,News"
+                ).split(",")
                 if label.strip()
             ),
             default_gmail_query=(os.getenv("DEFAULT_GMAIL_QUERY") or "in:inbox").strip(),

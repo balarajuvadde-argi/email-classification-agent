@@ -104,6 +104,17 @@ def _wholesale_current_policy():
     )
 
 
+def _acquisition_policy():
+    return ClassificationPolicy(
+        prompt=(
+            "Label Zillow, Redfin, MLS, Matrix, or OneHome listing alerts as "
+            "Acquisitions/On Market. Label non-platform property sale opportunities as "
+            "Acquisitions/Wholesale. Label news emails as News."
+        ),
+        labels=["Acquisitions/On Market", "Acquisitions/Wholesale", "News"],
+    )
+
+
 def _wholesale_resource(message_id="m1"):
     resource = _resource(message_id)
     resource["payload"] = {
@@ -115,6 +126,171 @@ def _wholesale_resource(message_id="m1"):
         "body": {"data": _encoded("Property offer in Miami, FL 33131")},
     }
     return resource
+
+
+def _listing_resource(
+    *,
+    message_id="m1",
+    from_header="Zillow <instant-updates@mail.zillow.com>",
+    subject="New Listing: 1029 NW 42nd St, Miami, FL 33127",
+    body=(
+        "New listing for sale at $560,000. 3 bd | 2 ba | 1,110 sqft. "
+        "1029 NW 42nd St, Miami, FL. See latest search results."
+    ),
+):
+    resource = _resource(message_id)
+    resource["payload"] = {
+        "mimeType": "text/plain",
+        "headers": [
+            {"name": "From", "value": from_header},
+            {"name": "Subject", "value": subject},
+        ],
+        "body": {"data": _encoded(body)},
+    }
+    return resource
+
+
+def test_zillow_listing_routes_to_acquisitions_on_market_without_model() -> None:
+    gmail = _Gmail()
+    gmail.get_message = lambda message_id: _listing_resource(message_id=message_id)
+    classifier = _Classifier(
+        UniversalDecision(label="Acquisitions/Wholesale", confidence=0.99, reason="Wrong", evidence=[])
+    )
+
+    report = UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).preview(_acquisition_policy())
+
+    assert report.outcomes[0].proposed_label == "Acquisitions/On Market"
+    assert "mail.zillow.com" in report.outcomes[0].reason
+    assert classifier.calls == []
+
+
+def test_redfin_listing_routes_to_acquisitions_on_market_by_root_domain() -> None:
+    gmail = _Gmail()
+    gmail.get_message = lambda message_id: _listing_resource(
+        message_id=message_id,
+        from_header="Redfin <alerts@email.redfin.com>",
+        subject="Redfin alert: new home for sale in Miami",
+        body="$415,000. 3 beds, 2 baths, 1,203 sqft. 7010 NW 6th Ave, Miami, FL.",
+    )
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(UniversalDecision(label=None, confidence=1, reason="No model", evidence=[])),
+        expected_email="user@example.com",
+    ).preview(_acquisition_policy())
+
+    assert report.outcomes[0].proposed_label == "Acquisitions/On Market"
+
+
+def test_matrix_mls_listing_routes_to_acquisitions_on_market() -> None:
+    gmail = _Gmail()
+    gmail.get_message = lambda message_id: _listing_resource(
+        message_id=message_id,
+        from_header="Maurice Argi <SEF@sefmatrixmail.com>",
+        subject="Liberty City - Single Family",
+        body=(
+            "I've set up a search based on what you're looking for. "
+            "I’ve found 1 new or updated listing for you to review. "
+            "$375,000 Single Family 1275 NW 55TH ST Miami, FL 33142 MLS #A12078408."
+        ),
+    )
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(UniversalDecision(label=None, confidence=1, reason="No model", evidence=[])),
+        expected_email="user@example.com",
+    ).preview(_acquisition_policy())
+
+    assert report.outcomes[0].proposed_label == "Acquisitions/On Market"
+
+
+def test_zillow_lookalike_sender_does_not_get_on_market_override() -> None:
+    gmail = _Gmail()
+    gmail.get_message = lambda message_id: _listing_resource(
+        message_id=message_id,
+        from_header="Fake Zillow <alerts@zillow.com.attacker.test>",
+    )
+    classifier = _Classifier(
+        UniversalDecision(
+            label="Acquisitions/Wholesale",
+            confidence=0.96,
+            reason="Non-platform property pitch",
+            evidence=[],
+        )
+    )
+
+    report = UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).preview(_acquisition_policy())
+
+    assert report.outcomes[0].proposed_label == "Acquisitions/Wholesale"
+    assert len(classifier.calls) == 1
+
+
+def test_zillow_loan_only_email_is_not_forced_to_on_market() -> None:
+    gmail = _Gmail()
+    gmail.get_message = lambda message_id: _listing_resource(
+        message_id=message_id,
+        from_header="Zillow Home Loans <loans@mail.zillow.com>",
+        subject="Get pre-qualified with Zillow Home Loans",
+        body=(
+            "At Zillow Home Loans, we can pre-qualify you for a loan in as little as "
+            "5 minutes with no impact to your credit score. Start now."
+        ),
+    )
+    classifier = _Classifier(
+        UniversalDecision(label=None, confidence=0.98, reason="Loan promotion only", evidence=[])
+    )
+
+    report = UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).preview(_acquisition_policy())
+
+    assert report.outcomes[0].proposed_label is None
+    assert len(classifier.calls) == 1
+
+
+def test_nested_acquisitions_wholesale_routes_to_miami_dade_and_important() -> None:
+    gmail = _Gmail()
+    gmail.get_message = _wholesale_resource
+    property_client = _PropertyClient(
+        [
+            PropertyRecord(
+                address="16225 NE 2nd Ave",
+                asking_price=250_000,
+                folio="30-2218-007-2720",
+                municipality="UNINCORPORATED COUNTY",
+                land_use="RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                legal_description="LOTS 4 & 5",
+                lot_size_sqft=10_000,
+                lookup_status="verified",
+                qualifies=True,
+                is_folio_30=True,
+                has_double_lot=True,
+                is_unincorporated=True,
+                reasons=("folio starts with 30 (unincorporated Miami-Dade)",),
+            )
+        ]
+    )
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(
+            UniversalDecision(
+                label="Acquisitions/Wholesale",
+                confidence=0.96,
+                reason="Property offer",
+                evidence=[],
+            )
+        ),
+        expected_email="user@example.com",
+        property_client=property_client,
+    ).preview(_acquisition_policy())
+
+    assert report.outcomes[0].secondary_label == "Acquisitions/Wholesale/Miami-Dade/Important"
+    assert len(property_client.calls) == 1
 
 
 def test_miami_dade_zip_adds_derived_sublabel_on_preview() -> None:

@@ -88,7 +88,11 @@ def test_oauth_identity_is_bound_to_gmail_profile_and_stable_subject() -> None:
     assert "refresh" not in user.encrypted_grant
     assert store.get_user("google-sub-123") == user
     assert user.policy is not None
-    assert user.policy.labels == ["Wholesale", "News"]
+    assert user.policy.labels == [
+        "Acquisitions/On Market",
+        "Acquisitions/Wholesale",
+        "News",
+    ]
     assert user.policy.automatic_enabled is True
     assert user.next_run_at == 0
 
@@ -115,7 +119,8 @@ def test_new_google_account_can_connect_without_mailbox_allowlist() -> None:
     assert user.email == "maurice@argifamily.com"
     assert user.user_id == "client-sub"
     assert user.policy is not None
-    assert "Wholesale" in user.policy.labels
+    assert "Acquisitions/On Market" in user.policy.labels
+    assert "Acquisitions/Wholesale" in user.policy.labels
     assert "News" in user.policy.labels
 
 
