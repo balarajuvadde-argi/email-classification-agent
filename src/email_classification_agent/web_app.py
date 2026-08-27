@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
 from .multitenant_store import secret_hash
+from .policy_templates import POLICY_TEMPLATES, get_policy_template
 from .universal_models import (
     ClassificationPolicy,
     OAuthStateRecord,
@@ -185,6 +186,74 @@ def _log_operation_failure(operation: str, exc: Exception) -> None:
         "operation_failed operation=%s error_type=%s",
         operation,
         type(exc).__name__,
+    )
+
+
+def _policy_from_template(
+    template_id: str,
+    *,
+    current_policy: ClassificationPolicy | None,
+    settings: WebSettings,
+) -> ClassificationPolicy:
+    template = get_policy_template(template_id)
+    if template is None:
+        raise ValueError("Unknown classification template")
+    return ClassificationPolicy(
+        prompt=template.prompt,
+        labels=list(template.labels),
+        gmail_query=(
+            current_policy.gmail_query if current_policy else settings.default_gmail_query
+        ),
+        confidence_threshold=(
+            current_policy.confidence_threshold
+            if current_policy
+            else settings.default_confidence_threshold
+        ),
+        max_messages_per_run=(
+            current_policy.max_messages_per_run
+            if current_policy
+            else settings.default_max_messages_per_run
+        ),
+        automatic_enabled=False,
+    )
+
+
+def _policy_with_custom_classification(
+    *,
+    current_policy: ClassificationPolicy | None,
+    settings: WebSettings,
+    label: str,
+    rule: str,
+) -> ClassificationPolicy:
+    clean_label = label.strip()
+    clean_rule = rule.strip()
+    if not clean_label:
+        raise ValueError("Classification label is required")
+    if len(clean_rule) < 20:
+        raise ValueError("Classification rule must be at least 20 characters")
+    base = current_policy or ClassificationPolicy(
+        prompt=settings.default_classification_prompt,
+        labels=list(settings.default_classification_labels),
+        gmail_query=settings.default_gmail_query,
+        confidence_threshold=settings.default_confidence_threshold,
+        max_messages_per_run=settings.default_max_messages_per_run,
+        automatic_enabled=False,
+    )
+    labels = list(base.labels)
+    if clean_label.casefold() not in {existing.casefold() for existing in labels}:
+        labels.append(clean_label)
+    prompt = (
+        f"{base.prompt.rstrip()}\n\n"
+        "Additional user classification:\n"
+        f"- Label emails as {clean_label} when {clean_rule}"
+    )
+    return ClassificationPolicy(
+        prompt=prompt,
+        labels=labels,
+        gmail_query=base.gmail_query,
+        confidence_threshold=base.confidence_threshold,
+        max_messages_per_run=base.max_messages_per_run,
+        automatic_enabled=False,
     )
 
 
@@ -460,6 +529,7 @@ def create_app(
                 user=user,
                 session=session,
                 policy=user.policy,
+                policy_templates=POLICY_TEMPLATES,
                 runs=(runs := [
                     run
                     for run in runtime.store.list_runs(user.user_id, 10)
@@ -552,6 +622,86 @@ def create_app(
                 status_code=303,
             )
         return RedirectResponse("/dashboard?notice=Policy+saved", status_code=303)
+
+    @app.post("/settings/template")
+    def save_template_policy(
+        request: Request,
+        csrf_token: str = Form(...),
+        template_id: str = Form(...),
+    ) -> Any:
+        authenticated = _session_user(request, runtime)
+        if not authenticated:
+            return RedirectResponse("/", status_code=303)
+        _, session, user = authenticated
+        if not _valid_csrf(session, csrf_token):
+            return _error_page(request, "Security token expired. Reload the dashboard.", 403)
+        if user.consent_version != settings.disclosure_version:
+            return RedirectResponse(
+                "/dashboard?error=Accept+the+current+privacy+notice+before+saving+settings.",
+                status_code=303,
+            )
+        try:
+            policy = _policy_from_template(
+                template_id,
+                current_policy=user.policy,
+                settings=settings,
+            )
+            runtime.store.save_policy(user.user_id, user.connection_version, policy)
+        except (ValidationError, ValueError) as exc:
+            _log_operation_failure("save_template_policy", exc)
+            message = "; ".join(
+                str(item.get("msg") or "Invalid policy")
+                for item in (exc.errors() if isinstance(exc, ValidationError) else [])
+            ) or str(exc)
+            return RedirectResponse(
+                f"/dashboard?error={_query_value(message[:250])}",
+                status_code=303,
+            )
+        return RedirectResponse(
+            "/dashboard?notice=Classification+template+saved.+Preview+before+automation.",
+            status_code=303,
+        )
+
+    @app.post("/settings/classifications")
+    def add_custom_classification(
+        request: Request,
+        csrf_token: str = Form(...),
+        custom_label: str = Form(...),
+        custom_rule: str = Form(...),
+    ) -> Any:
+        authenticated = _session_user(request, runtime)
+        if not authenticated:
+            return RedirectResponse("/", status_code=303)
+        _, session, user = authenticated
+        if not _valid_csrf(session, csrf_token):
+            return _error_page(request, "Security token expired. Reload the dashboard.", 403)
+        if user.consent_version != settings.disclosure_version:
+            return RedirectResponse(
+                "/dashboard?error=Accept+the+current+privacy+notice+before+saving+settings.",
+                status_code=303,
+            )
+        try:
+            policy = _policy_with_custom_classification(
+                current_policy=user.policy,
+                settings=settings,
+                label=custom_label,
+                rule=custom_rule,
+            )
+            runtime.store.save_policy(user.user_id, user.connection_version, policy)
+        except (ValidationError, ValueError) as exc:
+            _log_operation_failure("add_custom_classification", exc)
+            message = "; ".join(
+                str(item.get("msg") or "Invalid policy")
+                for item in (exc.errors() if isinstance(exc, ValidationError) else [])
+            ) or str(exc)
+            return RedirectResponse(
+                f"/dashboard?error={_query_value(message[:250])}",
+                status_code=303,
+            )
+        return RedirectResponse(
+            "/dashboard?notice=Classification+added.+Preview+before+automation.",
+            status_code=303,
+        )
 
     @app.post("/runs/preview")
     def start_preview(

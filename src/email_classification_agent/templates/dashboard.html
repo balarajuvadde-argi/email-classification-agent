@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">AI email workspace</p>
     <h1>What should I do with your inbox?</h1>
-    <p class="workspace-subtitle">Describe your classification policy in plain language, preview the result, and only then enable automation.</p>
+    <p class="workspace-subtitle">Choose a suggested acquisition workflow, add your own classification, or edit the policy directly. Preview before automation moves anything.</p>
   </div>
   <div class="header-account-pill">
     <span class="online-dot"></span>
@@ -27,6 +27,59 @@
   </form>
 </section>
 {% endif %}
+
+<section class="template-section">
+  <div class="section-heading-row template-heading-row">
+    <div>
+      <p class="eyebrow">Suggested workflows</p>
+      <h2>Start with one clean classification setup</h2>
+      <p>Templates save into this user&apos;s active policy. You can still edit the prompt and labels below.</p>
+    </div>
+  </div>
+  <div class="template-grid">
+    {% for template in policy_templates %}
+    <article class="template-card">
+      <div class="template-card-topline">
+        <span class="template-badge">{{ template.badge }}</span>
+      </div>
+      <h3>{{ template.title }}</h3>
+      <p>{{ template.description }}</p>
+      <div class="template-labels">
+        {% for label in template.labels %}
+        <span>{{ label }}</span>
+        {% endfor %}
+      </div>
+      <form method="post" action="/settings/template">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="template_id" value="{{ template.template_id }}">
+        <button class="secondary full" type="submit" {% if not consent_current %}disabled{% endif %}>Use this workflow</button>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+  <details class="custom-classification-panel">
+    <summary>
+      <span>
+        <strong>+ Add new classification</strong>
+        <small>Add a custom label and rule to the current saved policy.</small>
+      </span>
+      <span class="chevron">⌄</span>
+    </summary>
+    <form method="post" action="/settings/classifications" class="custom-classification-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        <span>Gmail label</span>
+        <input name="custom_label" maxlength="100" required placeholder="Example: Leads/Investors">
+      </label>
+      <label>
+        <span>Classification rule</span>
+        <textarea name="custom_rule" rows="3" maxlength="1000" required placeholder="Example: Label investor lead emails when the sender asks about buying, selling, funding, or partnership opportunities."></textarea>
+        <small>This appends to the saved policy and is stored for this Gmail user in the database.</small>
+      </label>
+      <button class="primary" type="submit" {% if not consent_current %}disabled{% endif %}>Add to policy</button>
+    </form>
+  </details>
+</section>
 
 <section class="composer-card">
   <div class="composer-topline">

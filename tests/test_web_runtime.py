@@ -90,6 +90,7 @@ def test_oauth_identity_is_bound_to_gmail_profile_and_stable_subject() -> None:
     assert user.policy is not None
     assert user.policy.labels == [
         "Acquisitions/On Market",
+        "Acquisitions/Off Market",
         "Acquisitions/Wholesale",
         "News",
     ]
@@ -120,6 +121,7 @@ def test_new_google_account_can_connect_without_mailbox_allowlist() -> None:
     assert user.user_id == "client-sub"
     assert user.policy is not None
     assert "Acquisitions/On Market" in user.policy.labels
+    assert "Acquisitions/Off Market" in user.policy.labels
     assert "Acquisitions/Wholesale" in user.policy.labels
     assert "News" in user.policy.labels
 

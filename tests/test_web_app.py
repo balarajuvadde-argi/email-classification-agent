@@ -174,6 +174,10 @@ def test_dashboard_escapes_user_prompt_and_model_control_text() -> None:
     assert response.status_code == 200
     assert "<script>alert" not in response.text
     assert "&lt;script&gt;" in response.text
+    assert "Suggested workflows" in response.text
+    assert "All acquisitions + news" in response.text
+    assert "On-Market only" in response.text
+    assert "+ Add new classification" in response.text
 
 
 def test_settings_write_requires_csrf_and_rejects_system_label() -> None:
@@ -205,6 +209,54 @@ def test_settings_write_requires_csrf_and_rejects_system_label() -> None:
     assert len(revisions) == 1
     assert revisions[0].policy.prompt == base["prompt"]
     assert revisions[0].policy_hash == store.get_user("u1").policy.policy_hash
+
+
+def test_template_policy_can_be_saved_from_dashboard() -> None:
+    client, store = _authenticated_client()
+
+    response = client.post(
+        "/settings/template",
+        data={"csrf_token": "csrf-token", "template_id": "on_market_only"},
+        follow_redirects=False,
+    )
+
+    policy = store.get_user("u1").policy
+    assert response.status_code == 303
+    assert policy is not None
+    assert policy.labels == ["Acquisitions/On Market"]
+    assert "Zillow, Redfin, MLS/Matrix, OneHome" in policy.prompt
+    assert policy.automatic_enabled is False
+    assert len(store.list_policy_revisions("u1", "v1")) == 1
+
+
+def test_custom_classification_appends_to_saved_policy() -> None:
+    policy = ClassificationPolicy(
+        prompt="Label newsletters and market updates as News.",
+        labels=["News"],
+        automatic_enabled=True,
+    )
+    client, store = _authenticated_client(policy)
+
+    response = client.post(
+        "/settings/classifications",
+        data={
+            "csrf_token": "csrf-token",
+            "custom_label": "Leads/Investors",
+            "custom_rule": (
+                "the sender asks about buying, selling, funding, or partnership "
+                "opportunities"
+            ),
+        },
+        follow_redirects=False,
+    )
+
+    saved = store.get_user("u1").policy
+    assert response.status_code == 303
+    assert saved is not None
+    assert saved.labels == ["News", "Leads/Investors"]
+    assert "Additional user classification" in saved.prompt
+    assert "Leads/Investors" in saved.prompt
+    assert saved.automatic_enabled is False
 
 
 def test_user_cannot_read_another_users_run() -> None:
