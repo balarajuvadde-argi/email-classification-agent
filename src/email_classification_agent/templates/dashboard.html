@@ -106,7 +106,7 @@
     <div class="quick-copy">
       <p class="eyebrow">Safe rollout</p>
       <h2>Preview Gmail</h2>
-      <p>Run your saved policy against Gmail without creating or applying destination labels.</p>
+      <p>Review the newest matching Gmail messages first, then apply the approved plan from the same session.</p>
     </div>
     <form method="post" action="/runs/preview">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -140,7 +140,7 @@
     </div>
     <ul class="safety-list">
       <li>Add approved labels only</li>
-      <li>Preserve Inbox</li>
+      <li>Move labeled messages out of Inbox</li>
       <li>No delete, send, forward or label removal</li>
     </ul>
   </section>
@@ -150,25 +150,31 @@
   <div class="section-heading-row">
     <div>
       <p class="eyebrow">Recent activity</p>
-      <h2>Classification runs</h2>
+      <h2>Classification sessions</h2>
     </div>
-    {% if runs %}<span class="section-count">{{ runs|length }} recent</span>{% endif %}
+    {% if run_sessions %}<span class="section-count">{{ run_sessions|length }} recent</span>{% endif %}
   </div>
 
-  {% if runs %}
+  {% if run_session_groups %}
   <div class="activity-list">
-    {% for run in runs %}
-    <a class="activity-row" href="/runs/{{ run.run_id }}">
+    {% for group in run_session_groups %}
+    <div class="activity-date-heading">{{ group.date_label }}</div>
+    {% for item in group.sessions %}
+    {% set run = item.run %}
+    <a class="activity-row" href="/runs/{{ item.run.run_id }}">
       <span class="activity-icon">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 12h7M7 17h4"/><rect x="4" y="3" width="16" height="18" rx="3"/></svg>
       </span>
       <span class="activity-main">
-        <strong>{{ run.mode | replace('_', ' ') | title }}</strong>
+        <strong>{{ item.title }}</strong>
+        <small class="activity-readable-meta">{{ item.summary }} · {{ item.time_label }} · ID {{ item.id_label }}{% if item.preview %} · Preview {{ item.preview.run_id[-8:] }}{% endif %}</small>
         <small>Run {{ run.run_id[-8:] }} · {{ run.created_at }}</small>
       </span>
-      <span class="run-status status-{{ run.status }}">{{ run.status | replace('_', ' ') }}</span>
+      <span class="run-mode-pill">{{ item.mode_label }}</span>
+      <span class="run-status status-{{ item.status }}">{{ item.status | replace('_', ' ') }}</span>
       <span class="row-arrow">›</span>
     </a>
+    {% endfor %}
     {% endfor %}
   </div>
   {% else %}

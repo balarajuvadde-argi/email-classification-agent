@@ -36,18 +36,18 @@
       <div class="sidebar-history">
         <div class="sidebar-section-title">
           <span>Classification history</span>
-          {% if runs is defined and runs %}<span class="history-count">{{ runs|length }}</span>{% endif %}
+          {% if run_sessions is defined and run_sessions %}<span class="history-count">{{ run_sessions|length }}</span>{% endif %}
         </div>
-        {% if runs is defined and runs %}
+        {% if run_sessions is defined and run_sessions %}
           <div class="history-list">
-            {% for item in runs[:12] %}
-            <a class="history-item" href="/runs/{{ item.run_id }}">
+            {% for item in run_sessions[:12] %}
+            <a class="history-item" href="/runs/{{ item.run.run_id }}">
               <span class="history-icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 12h7M7 17h4"/><rect x="4" y="3" width="16" height="18" rx="3"/></svg>
               </span>
               <span class="history-copy">
-                <strong>{{ item.mode | replace('_', ' ') | title }}</strong>
-                <small>{{ item.created_at }}</small>
+                <strong>{{ item.title }}</strong>
+                <small>{{ item.date_label }} · {{ item.time_label }}</small>
               </span>
               <span class="history-dot status-dot-{{ item.status }}" title="{{ item.status }}"></span>
             </a>

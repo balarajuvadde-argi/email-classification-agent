@@ -6,9 +6,11 @@ import secrets
 import time
 from contextlib import suppress
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -29,6 +31,7 @@ from .web_runtime import WebRuntime
 PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 LOGGER = logging.getLogger(__name__)
+DISPLAY_TIMEZONE = ZoneInfo("America/New_York")
 
 
 def _session_user(
@@ -80,6 +83,92 @@ def _base_context(
         "backup_recovery_days": settings.backup_recovery_days if settings else 0,
         **values,
     }
+
+
+def _display_datetime(timestamp: int) -> datetime:
+    return datetime.fromtimestamp(timestamp, tz=DISPLAY_TIMEZONE)
+
+
+def _format_run_date(timestamp: int) -> str:
+    value = _display_datetime(timestamp)
+    today = datetime.now(DISPLAY_TIMEZONE).date()
+    if value.date() == today:
+        return "Today"
+    return value.strftime("%b %d, %Y").replace(" 0", " ")
+
+
+def _format_run_time(timestamp: int) -> str:
+    return _display_datetime(timestamp).strftime("%I:%M %p").lstrip("0")
+
+
+def _run_mode_label(mode: str) -> str:
+    labels = {
+        "preview": "Preview",
+        "apply": "Applied",
+        "automatic": "Automatic",
+        "eml_test": ".eml test",
+    }
+    return labels.get(mode, mode.replace("_", " ").title())
+
+
+def _run_summary(run: Any) -> str:
+    if run.mode == "apply":
+        return "Reviewed labels applied to Gmail"
+    if run.mode == "preview":
+        return "Read-only preview generated"
+    if run.mode == "automatic":
+        return "Scheduled classification"
+    if run.mode == "eml_test":
+        return "Single-message file test"
+    return "Classification run"
+
+
+def _group_run_sessions(runs: list[Any]) -> list[dict[str, Any]]:
+    sessions: list[dict[str, Any]] = []
+    consumed_preview_ids: set[str] = set()
+    for run in runs:
+        if run.run_id in consumed_preview_ids:
+            continue
+        paired_preview = None
+        if run.mode == "apply":
+            paired_preview = next(
+                (
+                    candidate
+                    for candidate in runs
+                    if candidate.mode == "preview"
+                    and candidate.run_id not in consumed_preview_ids
+                    and candidate.policy_hash == run.policy_hash
+                    and candidate.connection_version == run.connection_version
+                    and 0 <= run.created_at - candidate.created_at <= 1_800
+                ),
+                None,
+            )
+            if paired_preview:
+                consumed_preview_ids.add(paired_preview.run_id)
+        title = "Classification session" if run.mode in {"preview", "apply"} else _run_mode_label(run.mode)
+        sessions.append(
+            {
+                "run": run,
+                "preview": paired_preview,
+                "title": title,
+                "mode_label": _run_mode_label(run.mode),
+                "summary": _run_summary(run),
+                "date_label": _format_run_date(run.created_at),
+                "time_label": _format_run_time(run.created_at),
+                "id_label": run.run_id[-8:],
+                "status": run.status,
+            }
+        )
+    return sessions
+
+
+def _group_sessions_by_date(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: list[dict[str, Any]] = []
+    for session in sessions:
+        if not grouped or grouped[-1]["date_label"] != session["date_label"]:
+            grouped.append({"date_label": session["date_label"], "sessions": []})
+        grouped[-1]["sessions"].append(session)
+    return grouped
 
 
 def _error_page(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
@@ -371,11 +460,13 @@ def create_app(
                 user=user,
                 session=session,
                 policy=user.policy,
-                runs=[
+                runs=(runs := [
                     run
                     for run in runtime.store.list_runs(user.user_id, 10)
                     if run.connection_version == user.connection_version
-                ],
+                ]),
+                run_sessions=(run_sessions := _group_run_sessions(runs)),
+                run_session_groups=_group_sessions_by_date(run_sessions),
                 policy_revisions=runtime.store.list_policy_revisions(
                     user.user_id, user.connection_version, 20
                 ),
@@ -497,6 +588,11 @@ def create_app(
         if run is None or run.connection_version != user.connection_version:
             return _error_page(request, "Run was not found or has expired.", 404)
         report = json.loads(run.report_json) if run.report_json else None
+        runs = [
+            item
+            for item in runtime.store.list_runs(user.user_id, 10)
+            if item.connection_version == user.connection_version
+        ]
         return templates.TemplateResponse(
             request=request,
             name="run.html",
@@ -505,8 +601,13 @@ def create_app(
                 user=user,
                 session=session,
                 run=run,
+                runs=runs,
+                run_sessions=_group_run_sessions(runs),
                 report=report,
                 plan_minutes=max(1, settings.plan_ttl_seconds // 60),
+                run_date_label=_format_run_date(run.created_at),
+                run_time_label=_format_run_time(run.created_at),
+                run_mode_label=_run_mode_label(run.mode),
             ),
         )
 

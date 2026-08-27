@@ -166,7 +166,9 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .section-heading-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 17px 18px; border-bottom: 1px solid var(--line); }
 .section-count { color: #8a918c; font-size: 10px; }
 .activity-list { display: grid; }
-.activity-row { min-height: 67px; display: grid; grid-template-columns: 38px minmax(0,1fr) auto 20px; gap: 12px; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; transition: background .14s ease; }
+.activity-date-heading { padding: 11px 18px 7px; color: #7f8681; background: #fbfbfa; border-top: 1px solid var(--line); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.activity-date-heading:first-child { border-top: 0; }
+.activity-row { min-height: 67px; display: grid; grid-template-columns: 38px minmax(0,1fr) auto auto 20px; gap: 12px; align-items: center; padding: 10px 15px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; transition: background .14s ease; }
 .activity-row:last-child { border-bottom: 0; }
 .activity-row:hover { background: #fafbf9; }
 .activity-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: #65706a; background: #eff1ee; }
@@ -174,8 +176,10 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .activity-main { min-width: 0; display: grid; }
 .activity-main strong { font-size: 12px; }
 .activity-main small { margin-top: 4px; color: #89908b; font-size: 10px; }
+.activity-main small:not(.activity-readable-meta) { display: none; }
 .row-arrow { color: #a2a8a4; font-size: 20px; }
 .run-status, .label-chip { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; padding: 5px 8px; color: #666e69; background: #eef0ed; font-size: 9px; font-weight: 800; text-transform: capitalize; white-space: nowrap; }
+.run-mode-pill { display: inline-flex; align-items: center; width: fit-content; border-radius: 999px; padding: 5px 8px; color: #4f5d57; background: #f4f5f3; border: 1px solid var(--line); font-size: 9px; font-weight: 800; white-space: nowrap; }
 .status-completed { color: #126049; background: #def0e9; }
 .status-failed { color: #96372f; background: #fae5e2; }
 .status-running, .status-queued, .status-retry { color: #7a5b13; background: #fff1c9; }
@@ -311,6 +315,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   .settings-grid { grid-template-columns: 1fr; }
   .wide-setting { grid-column: auto; }
   .activity-row { grid-template-columns: 34px minmax(0,1fr) auto; }
+  .activity-row .run-mode-pill { display: none; }
   .activity-row .run-status { display: none; }
   .run-title-row { align-items: flex-start; flex-direction: column; }
   .metric-grid { grid-template-columns: 1fr 1fr; }
