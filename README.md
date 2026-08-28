@@ -107,9 +107,11 @@ rollback, retention, and launch gates, use the complete
 API, DynamoDB, KMS, FIFO queues, worker, scheduler, bounded quotas, TTLs, logs, and alarms.
 
 For a temporary free-tier demonstration, use the Render blueprint in [`render.yaml`](render.yaml)
-and follow [`docs/MVP_DEPLOYMENT.md`](docs/MVP_DEPLOYMENT.md). This profile is intentionally
-non-durable: the free Render instance can sleep or restart, clearing local users, OAuth grants,
-policies, and history. It is suitable for an MVP demonstration only, not production data.
+and follow [`docs/MVP_DEPLOYMENT.md`](docs/MVP_DEPLOYMENT.md). With `DATABASE_URL`, the Render
+profile persists tenant state in Render Postgres and includes two cron jobs that run the
+default automatic classifier at 10:00 AM and 5:00 PM in `America/New_York`; the cron jobs
+fire at both possible UTC offsets and the app gates execution so daylight saving time does
+not shift the client-facing schedule. Use a paid database plan before real public use.
 
 ## Current launch status
 

@@ -8,8 +8,13 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .config import secret_json
+from .policy_templates import ALL_ACQUISITIONS_PROMPT
+from .schedule import parse_local_times
+
+DEFAULT_CLASSIFICATION_PROMPT = ALL_ACQUISITIONS_PROMPT
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,16 +32,17 @@ class WebSettings:
     openai_model: str
     queue_url: str | None
     aws_region: str | None
+    database_url: str | None = None
     cookie_name: str = "email_agent_session"
     session_ttl_seconds: int = 86_400
     oauth_state_ttl_seconds: int = 600
     plan_ttl_seconds: int = 900
     run_ttl_seconds: int = 86_400
-    automatic_interval_seconds: int = 900
+    automatic_interval_seconds: int = 43_200
     worker_lease_seconds: int = 330
     manual_runs_per_day: int = 50
     eml_previews_per_day: int = 20
-    automatic_runs_per_day: int = 96
+    automatic_runs_per_day: int = 2
     service_name: str = "Inbox Pilot"
     operator_name: str = "Local development operator"
     privacy_contact_email: str = "privacy@localhost.invalid"
@@ -50,6 +56,21 @@ class WebSettings:
     backup_recovery_days: int = 7
     mvp_mode: bool = False
     property_lookup_enabled: bool = False
+    default_classification_prompt: str = DEFAULT_CLASSIFICATION_PROMPT
+    default_classification_labels: tuple[str, ...] = (
+        "Acquisitions/On Market",
+        "Acquisitions/Off Market",
+        "Acquisitions/Wholesale",
+        "News",
+    )
+    default_gmail_query: str = "in:inbox"
+    default_confidence_threshold: float = 0.85
+    default_max_messages_per_run: int = 10
+    default_automatic_enabled: bool = True
+    scheduler_claim_delay_seconds: int = 3_600
+    automatic_schedule_timezone: str = "America/New_York"
+    automatic_schedule_local_times: tuple[str, ...] = ("10:00", "17:00")
+    automatic_schedule_window_seconds: int = 900
 
     @property
     def production(self) -> bool:
@@ -102,19 +123,20 @@ class WebSettings:
             queue_url=(os.getenv("CLASSIFICATION_QUEUE_URL") or "").strip() or None,
             aws_region=(os.getenv("AWS_REGION") or os.getenv("AWS_DEFAULT_REGION") or "").strip()
             or None,
+            database_url=(os.getenv("DATABASE_URL") or "").strip() or None,
             cookie_name=(os.getenv("SESSION_COOKIE_NAME") or "email_agent_session").strip(),
             session_ttl_seconds=int(os.getenv("SESSION_TTL_SECONDS") or "86400"),
             oauth_state_ttl_seconds=int(os.getenv("OAUTH_STATE_TTL_SECONDS") or "600"),
             plan_ttl_seconds=int(os.getenv("ACTION_PLAN_TTL_SECONDS") or "900"),
             run_ttl_seconds=int(os.getenv("RUN_TTL_SECONDS") or "86400"),
             automatic_interval_seconds=int(
-                os.getenv("AUTOMATIC_INTERVAL_SECONDS") or "900"
+                os.getenv("AUTOMATIC_INTERVAL_SECONDS") or "43200"
             ),
             worker_lease_seconds=int(os.getenv("WORKER_LEASE_SECONDS") or "330"),
             manual_runs_per_day=int(os.getenv("MANUAL_RUNS_PER_DAY") or "50"),
             eml_previews_per_day=int(os.getenv("EML_PREVIEWS_PER_DAY") or "20"),
             automatic_runs_per_day=int(
-                os.getenv("AUTOMATIC_RUNS_PER_DAY") or "96"
+                os.getenv("AUTOMATIC_RUNS_PER_DAY") or "2"
             ),
             service_name=(os.getenv("SERVICE_NAME") or "Inbox Pilot").strip(),
             operator_name=(
@@ -142,6 +164,43 @@ class WebSettings:
             property_lookup_enabled=(
                 os.getenv("PROPERTY_LOOKUP_ENABLED") or "false"
             ).strip().casefold() == "true",
+            default_classification_prompt=(
+                os.getenv("DEFAULT_CLASSIFICATION_PROMPT") or DEFAULT_CLASSIFICATION_PROMPT
+            ).strip(),
+            default_classification_labels=tuple(
+                label.strip()
+                for label in (
+                    os.getenv("DEFAULT_CLASSIFICATION_LABELS")
+                    or "Acquisitions/On Market,Acquisitions/Off Market,Acquisitions/Wholesale,News"
+                ).split(",")
+                if label.strip()
+            ),
+            default_gmail_query=(os.getenv("DEFAULT_GMAIL_QUERY") or "in:inbox").strip(),
+            default_confidence_threshold=float(
+                os.getenv("DEFAULT_CONFIDENCE_THRESHOLD") or "0.85"
+            ),
+            default_max_messages_per_run=int(
+                os.getenv("DEFAULT_MAX_MESSAGES_PER_RUN") or "10"
+            ),
+            default_automatic_enabled=(
+                os.getenv("DEFAULT_AUTOMATIC_ENABLED") or "true"
+            ).strip().casefold() == "true",
+            scheduler_claim_delay_seconds=int(
+                os.getenv("SCHEDULER_CLAIM_DELAY_SECONDS") or "3600"
+            ),
+            automatic_schedule_timezone=(
+                os.getenv("AUTOMATIC_SCHEDULE_TIMEZONE") or "America/New_York"
+            ).strip(),
+            automatic_schedule_local_times=tuple(
+                value.strip()
+                for value in (
+                    os.getenv("AUTOMATIC_SCHEDULE_LOCAL_TIMES") or "10:00,17:00"
+                ).split(",")
+                if value.strip()
+            ),
+            automatic_schedule_window_seconds=int(
+                os.getenv("AUTOMATIC_SCHEDULE_WINDOW_SECONDS") or "900"
+            ),
         )
         settings.validate()
         return settings
@@ -234,6 +293,25 @@ class WebSettings:
             self.run_ttl_seconds,
         ):
             raise ValueError("ACTION_PLAN_TTL_SECONDS cannot outlive sessions or runs")
+        if not (1 <= self.default_max_messages_per_run <= 100):
+            raise ValueError("DEFAULT_MAX_MESSAGES_PER_RUN must be between 1 and 100")
+        if not (0.5 <= self.default_confidence_threshold <= 1.0):
+            raise ValueError("DEFAULT_CONFIDENCE_THRESHOLD must be between 0.5 and 1.0")
+        if not self.default_classification_prompt:
+            raise ValueError("DEFAULT_CLASSIFICATION_PROMPT must not be empty")
+        if not self.default_classification_labels:
+            raise ValueError("DEFAULT_CLASSIFICATION_LABELS must not be empty")
+        if not (60 <= self.scheduler_claim_delay_seconds <= 86_400):
+            raise ValueError("SCHEDULER_CLAIM_DELAY_SECONDS must be between 60 and 86400")
+        try:
+            ZoneInfo(self.automatic_schedule_timezone)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("AUTOMATIC_SCHEDULE_TIMEZONE must be a valid IANA timezone") from exc
+        parse_local_times(",".join(self.automatic_schedule_local_times))
+        if not (60 <= self.automatic_schedule_window_seconds <= 3_600):
+            raise ValueError(
+                "AUTOMATIC_SCHEDULE_WINDOW_SECONDS must be between 60 and 3600"
+            )
 
 
 @lru_cache(maxsize=8)

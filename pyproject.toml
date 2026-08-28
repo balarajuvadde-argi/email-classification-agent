@@ -21,6 +21,7 @@ dependencies = [
   "mangum>=0.19,<1",
   "openai>=2.45,<3",
   "pydantic>=2.11,<3",
+  "psycopg[binary]>=3.2,<4",
   "python-multipart>=0.0.20,<1",
   "python-dotenv>=1.0,<2",
   "uvicorn>=0.34,<1",
@@ -37,6 +38,7 @@ dev = [
 [project.scripts]
 email-classifier = "email_classification_agent.cli:main"
 email-classifier-web = "email_classification_agent.web_local:main"
+email-classifier-scheduled = "email_classification_agent.scheduled_runner:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

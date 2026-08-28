@@ -5,7 +5,7 @@
   <div>
     <p class="eyebrow">AI email workspace</p>
     <h1>What should I do with your inbox?</h1>
-    <p class="workspace-subtitle">Describe your classification policy in plain language, preview the result, and only then enable automation.</p>
+    <p class="workspace-subtitle">Choose a suggested acquisition workflow, add your own classification, or edit the policy directly. Preview before automation moves anything.</p>
   </div>
   <div class="header-account-pill">
     <span class="online-dot"></span>
@@ -27,6 +27,59 @@
   </form>
 </section>
 {% endif %}
+
+<section class="template-section">
+  <div class="section-heading-row template-heading-row">
+    <div>
+      <p class="eyebrow">Suggested workflows</p>
+      <h2>Start with one clean classification setup</h2>
+      <p>Templates save into this user&apos;s active policy. You can still edit the prompt and labels below.</p>
+    </div>
+  </div>
+  <div class="template-grid">
+    {% for template in policy_templates %}
+    <article class="template-card">
+      <div class="template-card-topline">
+        <span class="template-badge">{{ template.badge }}</span>
+      </div>
+      <h3>{{ template.title }}</h3>
+      <p>{{ template.description }}</p>
+      <div class="template-labels">
+        {% for label in template.labels %}
+        <span>{{ label }}</span>
+        {% endfor %}
+      </div>
+      <form method="post" action="/settings/template">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="template_id" value="{{ template.template_id }}">
+        <button class="secondary full" type="submit" {% if not consent_current %}disabled{% endif %}>Use this workflow</button>
+      </form>
+    </article>
+    {% endfor %}
+  </div>
+  <details class="custom-classification-panel">
+    <summary>
+      <span>
+        <strong>+ Add new classification</strong>
+        <small>Add a custom label and rule to the current saved policy.</small>
+      </span>
+      <span class="chevron">⌄</span>
+    </summary>
+    <form method="post" action="/settings/classifications" class="custom-classification-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        <span>Gmail label</span>
+        <input name="custom_label" maxlength="100" required placeholder="Example: Leads/Investors">
+      </label>
+      <label>
+        <span>Classification rule</span>
+        <textarea name="custom_rule" rows="3" maxlength="1000" required placeholder="Example: Label investor lead emails when the sender asks about buying, selling, funding, or partnership opportunities."></textarea>
+        <small>This appends to the saved policy and is stored for this Gmail user in the database.</small>
+      </label>
+      <button class="primary" type="submit" {% if not consent_current %}disabled{% endif %}>Add to policy</button>
+    </form>
+  </details>
+</section>
 
 <section class="composer-card">
   <div class="composer-topline">
@@ -106,7 +159,7 @@
     <div class="quick-copy">
       <p class="eyebrow">Safe rollout</p>
       <h2>Preview Gmail</h2>
-      <p>Run your saved policy against Gmail without creating or applying destination labels.</p>
+      <p>Review the newest matching Gmail messages first, then apply the approved plan from the same session.</p>
     </div>
     <form method="post" action="/runs/preview">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -140,7 +193,7 @@
     </div>
     <ul class="safety-list">
       <li>Add approved labels only</li>
-      <li>Preserve Inbox</li>
+      <li>Move labeled messages out of Inbox</li>
       <li>No delete, send, forward or label removal</li>
     </ul>
   </section>
@@ -150,25 +203,31 @@
   <div class="section-heading-row">
     <div>
       <p class="eyebrow">Recent activity</p>
-      <h2>Classification runs</h2>
+      <h2>Classification sessions</h2>
     </div>
-    {% if runs %}<span class="section-count">{{ runs|length }} recent</span>{% endif %}
+    {% if run_sessions %}<span class="section-count">{{ run_sessions|length }} recent</span>{% endif %}
   </div>
 
-  {% if runs %}
+  {% if run_session_groups %}
   <div class="activity-list">
-    {% for run in runs %}
-    <a class="activity-row" href="/runs/{{ run.run_id }}">
+    {% for group in run_session_groups %}
+    <div class="activity-date-heading">{{ group.date_label }}</div>
+    {% for item in group.sessions %}
+    {% set run = item.run %}
+    <a class="activity-row" href="/runs/{{ item.run.run_id }}">
       <span class="activity-icon">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 12h7M7 17h4"/><rect x="4" y="3" width="16" height="18" rx="3"/></svg>
       </span>
       <span class="activity-main">
-        <strong>{{ run.mode | replace('_', ' ') | title }}</strong>
+        <strong>{{ item.title }}</strong>
+        <small class="activity-readable-meta">{{ item.summary }} · {{ item.time_label }} · ID {{ item.id_label }}{% if item.preview %} · Preview {{ item.preview.run_id[-8:] }}{% endif %}</small>
         <small>Run {{ run.run_id[-8:] }} · {{ run.created_at }}</small>
       </span>
-      <span class="run-status status-{{ run.status }}">{{ run.status | replace('_', ' ') }}</span>
+      <span class="run-mode-pill">{{ item.mode_label }}</span>
+      <span class="run-status status-{{ item.status }}">{{ item.status | replace('_', ' ') }}</span>
       <span class="row-arrow">›</span>
     </a>
+    {% endfor %}
     {% endfor %}
   </div>
   {% else %}

@@ -60,6 +60,21 @@ Parameters:
   ScheduleExpression:
     Type: String
     Default: rate(5 minutes)
+    Description: UTC dispatcher cadence; app logic only queues during configured local schedule windows.
+  AutomaticScheduleTimezone:
+    Type: String
+    Default: America/New_York
+    Description: IANA timezone used to evaluate automatic run times.
+  AutomaticScheduleLocalTimes:
+    Type: String
+    Default: 10:00,17:00
+    Description: Comma-separated local 24-hour run times, such as 10:00,17:00.
+  AutomaticScheduleWindowSeconds:
+    Type: Number
+    Default: 900
+    MinValue: 60
+    MaxValue: 3600
+    Description: Grace window after each local run time during which a dispatcher may queue runs.
   RunRetentionSeconds:
     Type: Number
     Default: 86400
@@ -126,11 +141,14 @@ Globals:
         SESSION_TTL_SECONDS: '86400'
         OAUTH_STATE_TTL_SECONDS: '600'
         ACTION_PLAN_TTL_SECONDS: '900'
-        AUTOMATIC_INTERVAL_SECONDS: '900'
+        AUTOMATIC_INTERVAL_SECONDS: '43200'
         WORKER_LEASE_SECONDS: '330'
         MANUAL_RUNS_PER_DAY: '50'
         EML_PREVIEWS_PER_DAY: '20'
-        AUTOMATIC_RUNS_PER_DAY: '96'
+        AUTOMATIC_RUNS_PER_DAY: '2'
+        AUTOMATIC_SCHEDULE_TIMEZONE: !Ref AutomaticScheduleTimezone
+        AUTOMATIC_SCHEDULE_LOCAL_TIMES: !Ref AutomaticScheduleLocalTimes
+        AUTOMATIC_SCHEDULE_WINDOW_SECONDS: !Sub ${AutomaticScheduleWindowSeconds}
         SERVICE_NAME: !Ref ServiceName
         OPERATOR_NAME: !Ref OperatorName
         PRIVACY_CONTACT_EMAIL: !Ref PrivacyContactEmail

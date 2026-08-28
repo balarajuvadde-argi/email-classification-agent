@@ -1,3 +1,4 @@
+import json
 import time
 
 from botocore.exceptions import ClientError
@@ -7,6 +8,11 @@ from google.oauth2.credentials import Credentials
 from email_classification_agent.multitenant_store import (
     InMemoryMultiTenantStore,
     _expected_transaction_condition,
+    _oauth_state_to_dict,
+    _policy_revision_to_dict,
+    _run_to_dict,
+    _session_to_dict,
+    _user_to_dict,
 )
 from email_classification_agent.token_security import (
     FernetTokenCipher,
@@ -17,7 +23,11 @@ from email_classification_agent.token_security import (
 from email_classification_agent.universal_models import (
     ClassificationPolicy,
     OAuthStateRecord,
+    PolicyRevision,
+    RunRecord,
     SessionRecord,
+    UniversalOutcome,
+    UniversalReport,
     UserRecord,
 )
 
@@ -145,6 +155,103 @@ def test_stored_user_grant_is_encrypted_and_excludes_shared_client_secret() -> N
     assert restored.refresh_token == "refresh"
     assert restored.token is None
     assert restored.client_secret == "shared-secret"
+
+
+def test_postgres_snapshot_serialization_adds_human_readable_timestamps() -> None:
+    policy = ClassificationPolicy(
+        prompt="Label invoices and payment receipts as Finance.",
+        labels=["Finance"],
+    )
+    user = UserRecord(
+        user_id="u1",
+        email="u@example.com",
+        encrypted_grant="cipher",
+        policy=policy,
+        created_at=1_700_000_000,
+        updated_at=1_700_000_100,
+        next_run_at=0,
+        consented_at=1_700_000_050,
+        connection_version="v1",
+    )
+    session = SessionRecord(
+        user_id="u1",
+        csrf_token="csrf",
+        expires_at=1_700_000_200,
+        connection_version="v1",
+    )
+    oauth_state = OAuthStateRecord(
+        code_verifier="verifier",
+        expires_at=1_700_000_300,
+        consented_at=1_700_000_250,
+    )
+
+    user_data = _user_to_dict(user)
+    session_data = _session_to_dict(session)
+    oauth_data = _oauth_state_to_dict(oauth_state)
+
+    assert user_data["created_at"] == 1_700_000_000
+    assert user_data["created_at_readable"] == "2023-11-14 22:13:20 UTC"
+    assert user_data["updated_at_readable"] == "2023-11-14 22:15:00 UTC"
+    assert user_data["next_run_at_readable"] == "not set"
+    assert user_data["consented_at_readable"] == "2023-11-14 22:14:10 UTC"
+    assert user_data["policy"] == policy.model_dump(mode="json")
+    assert session_data["expires_at_readable"] == "2023-11-14 22:16:40 UTC"
+    assert oauth_data["expires_at_readable"] == "2023-11-14 22:18:20 UTC"
+
+
+def test_run_and_policy_revision_snapshots_include_readable_json_and_times() -> None:
+    report = UniversalReport(
+        mailbox="u@example.com",
+        dry_run=True,
+        policy_hash="hash",
+        processed_label="EmailAgent/Processed/hash",
+        outcomes=[
+            UniversalOutcome(
+                message_id="m1",
+                thread_id="t1",
+                subject="Invoice",
+                sender="Vendor <vendor@example.com>",
+                proposed_label="Finance",
+                confidence=0.99,
+                action="would_add:Finance",
+                reason="Invoice",
+            )
+        ],
+    )
+    json_report = json.dumps(report.as_dict())
+    run = RunRecord(
+        run_id="run1",
+        user_id="u1",
+        mode="preview",
+        status="completed",
+        policy_hash="hash",
+        created_at=1_700_000_000,
+        updated_at=1_700_000_100,
+        expires_at=1_700_086_400,
+        report_json=json_report,
+        lease_expires_at=0,
+        connection_version="v1",
+    )
+    revision = PolicyRevision(
+        policy_hash="hash",
+        saved_at=1_700_000_050,
+        policy_json=ClassificationPolicy(
+            prompt="Label invoices and payment receipts as Finance.",
+            labels=["Finance"],
+        ).model_dump_json(),
+        connection_version="v1",
+    )
+
+    run_data = _run_to_dict(run)
+    revision_data = _policy_revision_to_dict(revision)
+
+    assert run_data["report_json"] == json_report
+    assert run_data["report"]["outcomes"][0]["subject"] == "Invoice"
+    assert run_data["created_at_readable"] == "2023-11-14 22:13:20 UTC"
+    assert run_data["expires_at_readable"] == "2023-11-15 22:13:20 UTC"
+    assert run_data["lease_expires_at_readable"] == "not set"
+    assert revision_data["policy"]["labels"] == ["Finance"]
+    assert revision_data["saved_at_readable"] == "2023-11-14 22:14:10 UTC"
 
 
 def test_automatic_users_are_due_and_claimed_atomically_in_memory() -> None:

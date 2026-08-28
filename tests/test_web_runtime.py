@@ -1,9 +1,11 @@
 import json
+from dataclasses import replace
 
 import pytest
 from cryptography.fernet import Fernet
 from google.oauth2.credentials import Credentials
 
+from email_classification_agent import web_runtime
 from email_classification_agent.multitenant_store import InMemoryMultiTenantStore
 from email_classification_agent.token_security import FernetTokenCipher
 from email_classification_agent.web_config import WebSettings
@@ -85,6 +87,15 @@ def test_oauth_identity_is_bound_to_gmail_profile_and_stable_subject() -> None:
     assert user.email == "user@example.com"
     assert "refresh" not in user.encrypted_grant
     assert store.get_user("google-sub-123") == user
+    assert user.policy is not None
+    assert user.policy.labels == [
+        "Acquisitions/On Market",
+        "Acquisitions/Off Market",
+        "Acquisitions/Wholesale",
+        "News",
+    ]
+    assert user.policy.automatic_enabled is True
+    assert user.next_run_at == 0
 
 
 def test_new_google_account_can_connect_without_mailbox_allowlist() -> None:
@@ -108,6 +119,31 @@ def test_new_google_account_can_connect_without_mailbox_allowlist() -> None:
 
     assert user.email == "maurice@argifamily.com"
     assert user.user_id == "client-sub"
+    assert user.policy is not None
+    assert "Acquisitions/On Market" in user.policy.labels
+    assert "Acquisitions/Off Market" in user.policy.labels
+    assert "Acquisitions/Wholesale" in user.policy.labels
+    assert "News" in user.policy.labels
+
+
+def test_database_url_selects_postgres_store(monkeypatch) -> None:
+    created = {}
+
+    class _Store(InMemoryMultiTenantStore):
+        def __init__(self, database_url):
+            super().__init__()
+            created["database_url"] = database_url
+
+    monkeypatch.setattr(web_runtime, "PostgresMultiTenantStore", _Store)
+    settings = replace(
+        _settings(Fernet.generate_key()),
+        database_url="postgresql://user:pass@db.internal/app",
+    )
+
+    store = WebRuntime._build_store(settings)
+
+    assert isinstance(store, _Store)
+    assert created["database_url"] == "postgresql://user:pass@db.internal/app"
 
 
 def test_existing_session_cannot_connect_a_different_google_subject() -> None:

@@ -5,9 +5,9 @@
   <a class="back-link" href="/dashboard">← Back to workspace</a>
   <div class="run-title-row">
     <div>
-      <p class="eyebrow">Classification run</p>
-      <h1>{{ run.mode | replace('_', ' ') | title }}</h1>
-      <p class="run-meta">Run {{ run.run_id[-8:] }}</p>
+      <p class="eyebrow">Classification session</p>
+      <h1>{% if run.mode in ['preview', 'apply'] %}Classification session{% else %}{{ run_mode_label }}{% endif %}</h1>
+      <p class="run-meta">{{ run_date_label }} · {{ run_time_label }} · {{ run_mode_label }} · ID {{ run.run_id[-8:] }}</p>
     </div>
     <span class="run-status status-{{ run.status }} large-status">{{ run.status | replace('_', ' ') }}</span>
   </div>
@@ -85,7 +85,7 @@
     {% endfor %}
   </div>
 
-  {% if run.mode == 'preview' %}<p class="microcopy">Preview shows the newest matching Inbox messages, including messages already reviewed. Preview plans expire after {{ plan_minutes }} minutes and can be applied only once. Applying queues the shown destination labels, removes Inbox from labeled messages, and adds a hidden processed marker.</p>{% else %}<p class="microcopy">The worker added the reviewed destination labels, removed Inbox from labeled messages, and added the hidden processed marker.</p>{% endif %}
+  {% if run.mode == 'preview' %}<p class="microcopy">This is the review step of one classification session. Preview shows the newest matching Inbox messages, including messages already reviewed. Preview plans expire after {{ plan_minutes }} minutes and can be applied only once. Applying queues the shown destination labels, removes Inbox from labeled messages, and adds a hidden processed marker.</p>{% else %}<p class="microcopy">This is the apply step of the same review workflow. The worker added the reviewed destination labels, removed Inbox from labeled messages, and added the hidden processed marker.</p>{% endif %}
 </section>
 {% endif %}
 

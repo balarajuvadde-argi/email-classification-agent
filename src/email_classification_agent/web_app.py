@@ -6,9 +6,11 @@ import secrets
 import time
 from contextlib import suppress
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -17,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
 from .multitenant_store import secret_hash
+from .policy_templates import POLICY_TEMPLATES, get_policy_template
 from .universal_models import (
     ClassificationPolicy,
     OAuthStateRecord,
@@ -29,6 +32,7 @@ from .web_runtime import WebRuntime
 PACKAGE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
 LOGGER = logging.getLogger(__name__)
+DISPLAY_TIMEZONE = ZoneInfo("America/New_York")
 
 
 def _session_user(
@@ -82,6 +86,92 @@ def _base_context(
     }
 
 
+def _display_datetime(timestamp: int) -> datetime:
+    return datetime.fromtimestamp(timestamp, tz=DISPLAY_TIMEZONE)
+
+
+def _format_run_date(timestamp: int) -> str:
+    value = _display_datetime(timestamp)
+    today = datetime.now(DISPLAY_TIMEZONE).date()
+    if value.date() == today:
+        return "Today"
+    return value.strftime("%b %d, %Y").replace(" 0", " ")
+
+
+def _format_run_time(timestamp: int) -> str:
+    return _display_datetime(timestamp).strftime("%I:%M %p").lstrip("0")
+
+
+def _run_mode_label(mode: str) -> str:
+    labels = {
+        "preview": "Preview",
+        "apply": "Applied",
+        "automatic": "Automatic",
+        "eml_test": ".eml test",
+    }
+    return labels.get(mode, mode.replace("_", " ").title())
+
+
+def _run_summary(run: Any) -> str:
+    if run.mode == "apply":
+        return "Reviewed labels applied to Gmail"
+    if run.mode == "preview":
+        return "Read-only preview generated"
+    if run.mode == "automatic":
+        return "Scheduled classification"
+    if run.mode == "eml_test":
+        return "Single-message file test"
+    return "Classification run"
+
+
+def _group_run_sessions(runs: list[Any]) -> list[dict[str, Any]]:
+    sessions: list[dict[str, Any]] = []
+    consumed_preview_ids: set[str] = set()
+    for run in runs:
+        if run.run_id in consumed_preview_ids:
+            continue
+        paired_preview = None
+        if run.mode == "apply":
+            paired_preview = next(
+                (
+                    candidate
+                    for candidate in runs
+                    if candidate.mode == "preview"
+                    and candidate.run_id not in consumed_preview_ids
+                    and candidate.policy_hash == run.policy_hash
+                    and candidate.connection_version == run.connection_version
+                    and 0 <= run.created_at - candidate.created_at <= 1_800
+                ),
+                None,
+            )
+            if paired_preview:
+                consumed_preview_ids.add(paired_preview.run_id)
+        title = "Classification session" if run.mode in {"preview", "apply"} else _run_mode_label(run.mode)
+        sessions.append(
+            {
+                "run": run,
+                "preview": paired_preview,
+                "title": title,
+                "mode_label": _run_mode_label(run.mode),
+                "summary": _run_summary(run),
+                "date_label": _format_run_date(run.created_at),
+                "time_label": _format_run_time(run.created_at),
+                "id_label": run.run_id[-8:],
+                "status": run.status,
+            }
+        )
+    return sessions
+
+
+def _group_sessions_by_date(sessions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    grouped: list[dict[str, Any]] = []
+    for session in sessions:
+        if not grouped or grouped[-1]["date_label"] != session["date_label"]:
+            grouped.append({"date_label": session["date_label"], "sessions": []})
+        grouped[-1]["sessions"].append(session)
+    return grouped
+
+
 def _error_page(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
     return templates.TemplateResponse(
         request=request,
@@ -96,6 +186,74 @@ def _log_operation_failure(operation: str, exc: Exception) -> None:
         "operation_failed operation=%s error_type=%s",
         operation,
         type(exc).__name__,
+    )
+
+
+def _policy_from_template(
+    template_id: str,
+    *,
+    current_policy: ClassificationPolicy | None,
+    settings: WebSettings,
+) -> ClassificationPolicy:
+    template = get_policy_template(template_id)
+    if template is None:
+        raise ValueError("Unknown classification template")
+    return ClassificationPolicy(
+        prompt=template.prompt,
+        labels=list(template.labels),
+        gmail_query=(
+            current_policy.gmail_query if current_policy else settings.default_gmail_query
+        ),
+        confidence_threshold=(
+            current_policy.confidence_threshold
+            if current_policy
+            else settings.default_confidence_threshold
+        ),
+        max_messages_per_run=(
+            current_policy.max_messages_per_run
+            if current_policy
+            else settings.default_max_messages_per_run
+        ),
+        automatic_enabled=False,
+    )
+
+
+def _policy_with_custom_classification(
+    *,
+    current_policy: ClassificationPolicy | None,
+    settings: WebSettings,
+    label: str,
+    rule: str,
+) -> ClassificationPolicy:
+    clean_label = label.strip()
+    clean_rule = rule.strip()
+    if not clean_label:
+        raise ValueError("Classification label is required")
+    if len(clean_rule) < 20:
+        raise ValueError("Classification rule must be at least 20 characters")
+    base = current_policy or ClassificationPolicy(
+        prompt=settings.default_classification_prompt,
+        labels=list(settings.default_classification_labels),
+        gmail_query=settings.default_gmail_query,
+        confidence_threshold=settings.default_confidence_threshold,
+        max_messages_per_run=settings.default_max_messages_per_run,
+        automatic_enabled=False,
+    )
+    labels = list(base.labels)
+    if clean_label.casefold() not in {existing.casefold() for existing in labels}:
+        labels.append(clean_label)
+    prompt = (
+        f"{base.prompt.rstrip()}\n\n"
+        "Additional user classification:\n"
+        f"- Label emails as {clean_label} when {clean_rule}"
+    )
+    return ClassificationPolicy(
+        prompt=prompt,
+        labels=labels,
+        gmail_query=base.gmail_query,
+        confidence_threshold=base.confidence_threshold,
+        max_messages_per_run=base.max_messages_per_run,
+        automatic_enabled=False,
     )
 
 
@@ -371,11 +529,14 @@ def create_app(
                 user=user,
                 session=session,
                 policy=user.policy,
-                runs=[
+                policy_templates=POLICY_TEMPLATES,
+                runs=(runs := [
                     run
                     for run in runtime.store.list_runs(user.user_id, 10)
                     if run.connection_version == user.connection_version
-                ],
+                ]),
+                run_sessions=(run_sessions := _group_run_sessions(runs)),
+                run_session_groups=_group_sessions_by_date(run_sessions),
                 policy_revisions=runtime.store.list_policy_revisions(
                     user.user_id, user.connection_version, 20
                 ),
@@ -462,6 +623,86 @@ def create_app(
             )
         return RedirectResponse("/dashboard?notice=Policy+saved", status_code=303)
 
+    @app.post("/settings/template")
+    def save_template_policy(
+        request: Request,
+        csrf_token: str = Form(...),
+        template_id: str = Form(...),
+    ) -> Any:
+        authenticated = _session_user(request, runtime)
+        if not authenticated:
+            return RedirectResponse("/", status_code=303)
+        _, session, user = authenticated
+        if not _valid_csrf(session, csrf_token):
+            return _error_page(request, "Security token expired. Reload the dashboard.", 403)
+        if user.consent_version != settings.disclosure_version:
+            return RedirectResponse(
+                "/dashboard?error=Accept+the+current+privacy+notice+before+saving+settings.",
+                status_code=303,
+            )
+        try:
+            policy = _policy_from_template(
+                template_id,
+                current_policy=user.policy,
+                settings=settings,
+            )
+            runtime.store.save_policy(user.user_id, user.connection_version, policy)
+        except (ValidationError, ValueError) as exc:
+            _log_operation_failure("save_template_policy", exc)
+            message = "; ".join(
+                str(item.get("msg") or "Invalid policy")
+                for item in (exc.errors() if isinstance(exc, ValidationError) else [])
+            ) or str(exc)
+            return RedirectResponse(
+                f"/dashboard?error={_query_value(message[:250])}",
+                status_code=303,
+            )
+        return RedirectResponse(
+            "/dashboard?notice=Classification+template+saved.+Preview+before+automation.",
+            status_code=303,
+        )
+
+    @app.post("/settings/classifications")
+    def add_custom_classification(
+        request: Request,
+        csrf_token: str = Form(...),
+        custom_label: str = Form(...),
+        custom_rule: str = Form(...),
+    ) -> Any:
+        authenticated = _session_user(request, runtime)
+        if not authenticated:
+            return RedirectResponse("/", status_code=303)
+        _, session, user = authenticated
+        if not _valid_csrf(session, csrf_token):
+            return _error_page(request, "Security token expired. Reload the dashboard.", 403)
+        if user.consent_version != settings.disclosure_version:
+            return RedirectResponse(
+                "/dashboard?error=Accept+the+current+privacy+notice+before+saving+settings.",
+                status_code=303,
+            )
+        try:
+            policy = _policy_with_custom_classification(
+                current_policy=user.policy,
+                settings=settings,
+                label=custom_label,
+                rule=custom_rule,
+            )
+            runtime.store.save_policy(user.user_id, user.connection_version, policy)
+        except (ValidationError, ValueError) as exc:
+            _log_operation_failure("add_custom_classification", exc)
+            message = "; ".join(
+                str(item.get("msg") or "Invalid policy")
+                for item in (exc.errors() if isinstance(exc, ValidationError) else [])
+            ) or str(exc)
+            return RedirectResponse(
+                f"/dashboard?error={_query_value(message[:250])}",
+                status_code=303,
+            )
+        return RedirectResponse(
+            "/dashboard?notice=Classification+added.+Preview+before+automation.",
+            status_code=303,
+        )
+
     @app.post("/runs/preview")
     def start_preview(
         request: Request,
@@ -497,6 +738,11 @@ def create_app(
         if run is None or run.connection_version != user.connection_version:
             return _error_page(request, "Run was not found or has expired.", 404)
         report = json.loads(run.report_json) if run.report_json else None
+        runs = [
+            item
+            for item in runtime.store.list_runs(user.user_id, 10)
+            if item.connection_version == user.connection_version
+        ]
         return templates.TemplateResponse(
             request=request,
             name="run.html",
@@ -505,8 +751,13 @@ def create_app(
                 user=user,
                 session=session,
                 run=run,
+                runs=runs,
+                run_sessions=_group_run_sessions(runs),
                 report=report,
                 plan_minutes=max(1, settings.plan_ttl_seconds // 60),
+                run_date_label=_format_run_date(run.created_at),
+                run_time_label=_format_run_time(run.created_at),
+                run_mode_label=_run_mode_label(run.mode),
             ),
         )
 

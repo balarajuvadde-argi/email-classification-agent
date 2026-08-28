@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from dataclasses import replace
+from datetime import UTC, datetime
 from threading import RLock
 from typing import Any, Protocol
 
@@ -21,6 +22,36 @@ from .universal_models import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _readable_time(timestamp: int | float | str | None) -> str:
+    try:
+        value = int(timestamp or 0)
+    except (TypeError, ValueError):
+        return ""
+    if value <= 0:
+        return "not set"
+    return datetime.fromtimestamp(value, tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _readable_json(raw: str) -> dict[str, Any] | list[Any] | None:
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict | list) else None
+
+
+def _with_readable_times(
+    value: dict[str, Any],
+    fields: tuple[str, ...],
+) -> dict[str, Any]:
+    for field in fields:
+        if field in value:
+            value[f"{field}_readable"] = _readable_time(value[field])
+    return value
 
 
 def secret_hash(value: str) -> str:
@@ -563,6 +594,468 @@ class InMemoryMultiTenantStore:
             ]
         records.sort(key=lambda run: run.created_at, reverse=True)
         return records[:limit]
+
+
+class PostgresMultiTenantStore(InMemoryMultiTenantStore):
+    """Render-friendly persistent store.
+
+    The production AWS path uses DynamoDB. For the Render MVP, this store keeps the
+    same in-memory semantics but persists an encrypted/sensitive state snapshot to
+    Postgres after every mutation, so OAuth grants and policies survive restarts.
+    """
+
+    def __init__(self, database_url: str) -> None:
+        if not database_url.strip():
+            raise ValueError("DATABASE_URL is required")
+        super().__init__()
+        self._database_url = database_url
+        self._init_schema()
+        self._load_snapshot()
+        self._persist_snapshot()
+
+    def _connect(self) -> Any:
+        import psycopg
+
+        return psycopg.connect(self._database_url)
+
+    def _init_schema(self) -> None:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inbox_pilot_state (
+                    id TEXT PRIMARY KEY,
+                    data JSONB NOT NULL,
+                    updated_at BIGINT NOT NULL,
+                    updated_at_readable TEXT NOT NULL DEFAULT ''
+                )
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE inbox_pilot_state
+                ADD COLUMN IF NOT EXISTS updated_at_readable TEXT NOT NULL DEFAULT ''
+                """
+            )
+
+    def _load_snapshot(self) -> None:
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT data FROM inbox_pilot_state WHERE id = %s", ("main",))
+            row = cur.fetchone()
+        if not row:
+            return
+        self._restore_snapshot(row[0])
+
+    def _persist_snapshot(self) -> None:
+        from psycopg.types.json import Jsonb
+
+        snapshot = self._snapshot()
+        now = int(time.time())
+        with self._connect() as conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO inbox_pilot_state (id, data, updated_at, updated_at_readable)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (id) DO UPDATE
+                SET data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    updated_at_readable = EXCLUDED.updated_at_readable
+                """,
+                ("main", Jsonb(snapshot), now, _readable_time(now)),
+            )
+
+    def _snapshot(self) -> dict[str, Any]:
+        now = int(time.time())
+        with self._lock:
+            return {
+                "snapshot_version": 2,
+                "generated_at": now,
+                "generated_at_readable": _readable_time(now),
+                "states": {
+                    key: _oauth_state_to_dict(value)
+                    for key, value in self.states.items()
+                    if self._alive(value.expires_at)
+                },
+                "sessions": {
+                    key: _session_to_dict(value)
+                    for key, value in self.sessions.items()
+                    if self._alive(value.expires_at)
+                },
+                "users": {
+                    key: _user_to_dict(value)
+                    for key, value in self.users.items()
+                },
+                "plans": {
+                    key: _plan_to_dict(value)
+                    for key, value in self.plans.items()
+                    if self._alive(value.expires_at)
+                },
+                "runs": {
+                    f"{user_id}\t{run_id}": _run_to_dict(value)
+                    for (user_id, run_id), value in self.runs.items()
+                    if self._alive(value.expires_at)
+                },
+                "policy_revisions": {
+                    f"{user_id}\t{saved_at}\t{policy_hash}": _policy_revision_to_dict(value)
+                    for (user_id, saved_at, policy_hash), value in self.policy_revisions.items()
+                },
+                "active_runs": {
+                    key: {
+                        "run_id": value[0],
+                        "expires_at": value[1],
+                        "expires_at_readable": _readable_time(value[1]),
+                        "connection_version": value[2],
+                    }
+                    for key, value in self.active_runs.items()
+                    if value[1] > now
+                },
+                "quotas": {
+                    f"{user_id}\t{quota_name}\t{bucket}": {
+                        "count": count,
+                        "bucket": bucket,
+                    }
+                    for (user_id, quota_name, bucket), count in self.quotas.items()
+                },
+            }
+
+    def _restore_snapshot(self, snapshot: dict[str, Any]) -> None:
+        with self._lock:
+            self.states = {
+                key: _oauth_state_from_dict(value)
+                for key, value in (snapshot.get("states") or {}).items()
+            }
+            self.sessions = {
+                key: _session_from_dict(value)
+                for key, value in (snapshot.get("sessions") or {}).items()
+            }
+            self.users = {
+                key: _user_from_dict(value)
+                for key, value in (snapshot.get("users") or {}).items()
+            }
+            self.plans = {
+                key: _plan_from_dict(value)
+                for key, value in (snapshot.get("plans") or {}).items()
+            }
+            self.runs = {
+                (parts[0], parts[1]): _run_from_dict(value)
+                for key, value in (snapshot.get("runs") or {}).items()
+                if len(parts := key.split("\t", 1)) == 2
+            }
+            self.policy_revisions = {
+                (parts[0], int(parts[1]), parts[2]): _policy_revision_from_dict(value)
+                for key, value in (snapshot.get("policy_revisions") or {}).items()
+                if len(parts := key.split("\t", 2)) == 3
+            }
+            self.active_runs = {
+                key: (
+                    str(value["run_id"]),
+                    int(value["expires_at"]),
+                    str(value.get("connection_version") or ""),
+                )
+                if isinstance(value, dict)
+                else (str(value[0]), int(value[1]), str(value[2]))
+                for key, value in (snapshot.get("active_runs") or {}).items()
+                if (
+                    isinstance(value, dict)
+                    and {"run_id", "expires_at"}.issubset(value.keys())
+                )
+                or (isinstance(value, list | tuple) and len(value) == 3)
+            }
+            self.quotas = {
+                (parts[0], parts[1], int(parts[2])): int(
+                    value.get("count") if isinstance(value, dict) else value
+                )
+                for key, value in (snapshot.get("quotas") or {}).items()
+                if len(parts := key.split("\t", 2)) == 3
+            }
+
+    def put_oauth_state(self, state: str, record: OAuthStateRecord) -> None:
+        super().put_oauth_state(state, record)
+        self._persist_snapshot()
+
+    def consume_oauth_state(self, state: str) -> OAuthStateRecord | None:
+        result = super().consume_oauth_state(state)
+        self._persist_snapshot()
+        return result
+
+    def put_session(self, token: str, record: SessionRecord) -> None:
+        super().put_session(token, record)
+        self._persist_snapshot()
+
+    def delete_session(self, token: str) -> None:
+        super().delete_session(token)
+        self._persist_snapshot()
+
+    def put_user(self, user: UserRecord) -> None:
+        super().put_user(user)
+        self._persist_snapshot()
+
+    def upsert_user_connection(self, *args: Any, **kwargs: Any) -> UserRecord:
+        result = super().upsert_user_connection(*args, **kwargs)
+        self._persist_snapshot()
+        return result
+
+    def save_policy(self, *args: Any, **kwargs: Any) -> UserRecord:
+        result = super().save_policy(*args, **kwargs)
+        self._persist_snapshot()
+        return result
+
+    def mark_policy_previewed(self, *args: Any, **kwargs: Any) -> bool:
+        result = super().mark_policy_previewed(*args, **kwargs)
+        if result:
+            self._persist_snapshot()
+        return result
+
+    def update_consent(self, *args: Any, **kwargs: Any) -> UserRecord:
+        result = super().update_consent(*args, **kwargs)
+        self._persist_snapshot()
+        return result
+
+    def claim_automatic_user(self, *args: Any, **kwargs: Any) -> bool:
+        result = super().claim_automatic_user(*args, **kwargs)
+        if result:
+            self._persist_snapshot()
+        return result
+
+    def pause_automatic_user(self, *args: Any, **kwargs: Any) -> bool:
+        result = super().pause_automatic_user(*args, **kwargs)
+        if result:
+            self._persist_snapshot()
+        return result
+
+    def delete_user(self, user_id: str, connection_version: str) -> None:
+        super().delete_user(user_id, connection_version)
+        self._persist_snapshot()
+
+    def acquire_active_run(self, *args: Any, **kwargs: Any) -> bool:
+        result = super().acquire_active_run(*args, **kwargs)
+        if result:
+            self._persist_snapshot()
+        return result
+
+    def release_active_run(self, user_id: str, run_id: str) -> None:
+        super().release_active_run(user_id, run_id)
+        self._persist_snapshot()
+
+    def consume_quota(self, *args: Any, **kwargs: Any) -> bool:
+        result = super().consume_quota(*args, **kwargs)
+        if result:
+            self._persist_snapshot()
+        return result
+
+    def put_plan(self, plan_id: str, plan: ActionPlan) -> None:
+        super().put_plan(plan_id, plan)
+        self._persist_snapshot()
+
+    def consume_plan(self, plan_id: str) -> ActionPlan | None:
+        result = super().consume_plan(plan_id)
+        self._persist_snapshot()
+        return result
+
+    def put_run(self, run: RunRecord) -> None:
+        super().put_run(run)
+        self._persist_snapshot()
+
+    def update_run(self, run: RunRecord) -> bool:
+        result = super().update_run(run)
+        if result:
+            self._persist_snapshot()
+        return result
+
+    def claim_run(self, *args: Any, **kwargs: Any) -> RunRecord | None:
+        result = super().claim_run(*args, **kwargs)
+        if result:
+            self._persist_snapshot()
+        return result
+
+
+def _user_to_dict(user: UserRecord) -> dict[str, Any]:
+    value = {
+        "user_id": user.user_id,
+        "email": user.email,
+        "encrypted_grant": user.encrypted_grant,
+        "policy_json": user.policy.model_dump_json() if user.policy else "",
+        "policy": user.policy.model_dump(mode="json") if user.policy else None,
+        "created_at": user.created_at,
+        "updated_at": user.updated_at,
+        "next_run_at": user.next_run_at,
+        "last_previewed_activation_hash": user.last_previewed_activation_hash,
+        "consent_version": user.consent_version,
+        "consented_at": user.consented_at,
+        "connection_version": user.connection_version,
+        "schedule_paused_for_consent": user.schedule_paused_for_consent,
+    }
+    return _with_readable_times(
+        value,
+        ("created_at", "updated_at", "next_run_at", "consented_at"),
+    )
+
+
+def _user_from_dict(value: dict[str, Any]) -> UserRecord:
+    policy_json = str(value.get("policy_json") or "")
+    return UserRecord(
+        user_id=str(value["user_id"]),
+        email=str(value["email"]),
+        encrypted_grant=str(value["encrypted_grant"]),
+        policy=ClassificationPolicy.model_validate_json(policy_json) if policy_json else None,
+        created_at=int(value.get("created_at") or 0),
+        updated_at=int(value.get("updated_at") or 0),
+        next_run_at=int(value.get("next_run_at") or 0),
+        last_previewed_activation_hash=str(value.get("last_previewed_activation_hash") or ""),
+        consent_version=str(value.get("consent_version") or ""),
+        consented_at=int(value.get("consented_at") or 0),
+        connection_version=str(value.get("connection_version") or ""),
+        schedule_paused_for_consent=bool(value.get("schedule_paused_for_consent") or False),
+    )
+
+
+def _session_to_dict(record: SessionRecord) -> dict[str, Any]:
+    value = {
+        "user_id": record.user_id,
+        "csrf_token": record.csrf_token,
+        "expires_at": record.expires_at,
+        "connection_version": record.connection_version,
+    }
+    return _with_readable_times(value, ("expires_at",))
+
+
+def _session_from_dict(value: dict[str, Any]) -> SessionRecord:
+    return SessionRecord(
+        user_id=str(value["user_id"]),
+        csrf_token=str(value["csrf_token"]),
+        expires_at=int(value["expires_at"]),
+        connection_version=str(value.get("connection_version") or ""),
+    )
+
+
+def _oauth_state_to_dict(record: OAuthStateRecord) -> dict[str, Any]:
+    value = {
+        "code_verifier": record.code_verifier,
+        "expires_at": record.expires_at,
+        "initiating_user_id": record.initiating_user_id,
+        "browser_nonce_hash": record.browser_nonce_hash,
+        "id_token_nonce": record.id_token_nonce,
+        "consent_version": record.consent_version,
+        "consented_at": record.consented_at,
+        "purpose": record.purpose,
+        "initiating_connection_version": record.initiating_connection_version,
+    }
+    return _with_readable_times(value, ("expires_at", "consented_at"))
+
+
+def _oauth_state_from_dict(value: dict[str, Any]) -> OAuthStateRecord:
+    return OAuthStateRecord(
+        code_verifier=str(value["code_verifier"]),
+        expires_at=int(value["expires_at"]),
+        initiating_user_id=value.get("initiating_user_id"),
+        browser_nonce_hash=str(value.get("browser_nonce_hash") or ""),
+        id_token_nonce=str(value.get("id_token_nonce") or ""),
+        consent_version=str(value.get("consent_version") or ""),
+        consented_at=int(value.get("consented_at") or 0),
+        purpose=str(value.get("purpose") or "connect"),
+        initiating_connection_version=str(value.get("initiating_connection_version") or ""),
+    )
+
+
+def _outcome_from_dict(value: dict[str, Any]) -> UniversalOutcome:
+    return UniversalOutcome(
+        message_id=str(value["message_id"]),
+        thread_id=str(value.get("thread_id") or ""),
+        subject=str(value.get("subject") or ""),
+        sender=str(value.get("sender") or ""),
+        proposed_label=value.get("proposed_label"),
+        confidence=float(value.get("confidence") or 0.0),
+        action=str(value.get("action") or ""),
+        reason=str(value.get("reason") or ""),
+        evidence=tuple(value.get("evidence") or []),
+        secondary_label=value.get("secondary_label"),
+        property_records=tuple(value.get("property_records") or []),
+    )
+
+
+def _plan_to_dict(plan: ActionPlan) -> dict[str, Any]:
+    value = {
+        "user_id": plan.user_id,
+        "policy_hash": plan.policy_hash,
+        "mailbox": plan.mailbox,
+        "outcomes": [outcome.as_dict() for outcome in plan.outcomes],
+        "expires_at": plan.expires_at,
+        "connection_version": plan.connection_version,
+    }
+    return _with_readable_times(value, ("expires_at",))
+
+
+def _plan_from_dict(value: dict[str, Any]) -> ActionPlan:
+    return ActionPlan(
+        user_id=str(value["user_id"]),
+        policy_hash=str(value["policy_hash"]),
+        mailbox=str(value["mailbox"]),
+        outcomes=tuple(_outcome_from_dict(item) for item in value.get("outcomes") or []),
+        expires_at=int(value["expires_at"]),
+        connection_version=str(value.get("connection_version") or ""),
+    )
+
+
+def _run_to_dict(run: RunRecord) -> dict[str, Any]:
+    value = {
+        "run_id": run.run_id,
+        "user_id": run.user_id,
+        "mode": run.mode,
+        "status": run.status,
+        "policy_hash": run.policy_hash,
+        "created_at": run.created_at,
+        "updated_at": run.updated_at,
+        "expires_at": run.expires_at,
+        "report_json": run.report_json,
+        "report": _readable_json(run.report_json),
+        "plan_id": run.plan_id,
+        "error": run.error,
+        "lease_expires_at": run.lease_expires_at,
+        "attempts": run.attempts,
+        "connection_version": run.connection_version,
+    }
+    return _with_readable_times(
+        value,
+        ("created_at", "updated_at", "expires_at", "lease_expires_at"),
+    )
+
+
+def _run_from_dict(value: dict[str, Any]) -> RunRecord:
+    return RunRecord(
+        run_id=str(value["run_id"]),
+        user_id=str(value["user_id"]),
+        mode=str(value["mode"]),
+        status=str(value["status"]),
+        policy_hash=str(value["policy_hash"]),
+        created_at=int(value["created_at"]),
+        updated_at=int(value["updated_at"]),
+        expires_at=int(value["expires_at"]),
+        report_json=str(value.get("report_json") or ""),
+        plan_id=str(value.get("plan_id") or ""),
+        error=str(value.get("error") or ""),
+        lease_expires_at=int(value.get("lease_expires_at") or 0),
+        attempts=int(value.get("attempts") or 0),
+        connection_version=str(value.get("connection_version") or ""),
+    )
+
+
+def _policy_revision_to_dict(revision: PolicyRevision) -> dict[str, Any]:
+    value = {
+        "policy_hash": revision.policy_hash,
+        "saved_at": revision.saved_at,
+        "policy_json": revision.policy_json,
+        "policy": _readable_json(revision.policy_json),
+        "connection_version": revision.connection_version,
+    }
+    return _with_readable_times(value, ("saved_at",))
+
+
+def _policy_revision_from_dict(value: dict[str, Any]) -> PolicyRevision:
+    return PolicyRevision(
+        policy_hash=str(value["policy_hash"]),
+        saved_at=int(value["saved_at"]),
+        policy_json=str(value["policy_json"]),
+        connection_version=str(value.get("connection_version") or ""),
+    )
 
 
 class DynamoDbMultiTenantStore:

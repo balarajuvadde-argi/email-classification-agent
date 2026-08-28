@@ -20,10 +20,10 @@ account's owner explicitly signs in and grants access. There is no application a
 consent; being logged in on a developer's computer does not authorize access on the client's
 behalf.
 
-It does **not** provide durable storage. Render Free can sleep or restart the service, which
-clears local users, sessions, OAuth grants, policies, and history. Do not use this profile for
-real users or unattended scheduled processing. Use `docs/WEB_DEPLOYMENT.md` and
-`template-web.yaml` for the durable AWS architecture.
+With `DATABASE_URL` configured, this profile persists users, sessions, OAuth grants, policies,
+plans, quotas, and run history in Render Postgres. Without `DATABASE_URL`, it falls back to
+in-memory storage and loses users after restart. Use a paid database plan before real public
+use; the free plan is suitable only for controlled MVP testing.
 
 OpenAI API usage is not free. Create a small OpenAI project budget before testing.
 
@@ -86,6 +86,7 @@ In the service's Environment page, set these values:
 APP_BASE_URL=https://YOUR-RENDER-SERVICE.onrender.com
 APP_ENV=staging
 MVP_MODE=true
+DATABASE_URL=<Render internal Postgres connection string>
 PROPERTY_LOOKUP_ENABLED=true
 OPENAI_API_KEY=your OpenAI project key
 OPENAI_MODEL=gpt-4o-mini
@@ -117,6 +118,10 @@ OPENAI_API_KEY_SECRET_ID
 ```
 
 Those variables select the AWS production services.
+
+When using the blueprint, `DATABASE_URL` is injected automatically from the `inbox-pilot-db`
+database. If you created the database manually, use the **Internal Database URL** from Render's
+database page, not the external URL.
 
 `PROPERTY_LOOKUP_ENABLED=true` makes the worker call the Miami-Dade Property Appraiser's
 public address and folio search service for wholesale messages. The service is queried only
@@ -151,7 +156,37 @@ After Render gives the service URL, update the Google OAuth client:
 
 Wait for Google settings to propagate, then redeploy/restart the Render service.
 
-## 6. Verify the deployment
+## 6. Scheduled automatic runs
+
+The blueprint creates two Render Cron Jobs:
+
+```text
+inbox-pilot-morning-run   0 14,15 * * *
+inbox-pilot-evening-run   0 21,22 * * *
+```
+
+Render cron schedules are UTC, while the product schedule is evaluated in Miami time with:
+
+```text
+AUTOMATIC_SCHEDULE_TIMEZONE=America/New_York
+AUTOMATIC_SCHEDULE_LOCAL_TIMES=10:00,17:00
+AUTOMATIC_SCHEDULE_WINDOW_SECONDS=900
+```
+
+The extra UTC hours cover both daylight saving time and standard time. The application only
+queues runs inside the configured local-time windows, so users still get two automatic runs:
+10:00 AM and 5:00 PM Miami time.
+
+Each cron job runs:
+
+```text
+email-classifier-scheduled
+```
+
+The command loads users from Postgres, finds users with automatic classification enabled,
+queues/runs their automatic classification, and exits.
+
+## 7. Verify the deployment
 
 Open:
 

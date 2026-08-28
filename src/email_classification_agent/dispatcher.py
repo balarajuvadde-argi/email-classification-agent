@@ -6,6 +6,7 @@ from dataclasses import replace
 from typing import Any
 
 from .multitenant_store import DynamoDbMultiTenantStore
+from .schedule import is_in_scheduled_window, next_scheduled_timestamp, parse_local_times
 from .universal_models import RunRecord
 from .web_config import WebSettings
 from .web_runtime import SqsJobQueue
@@ -20,6 +21,18 @@ def lambda_handler(event: dict[str, Any] | None, context: Any) -> dict[str, Any]
     queue = SqsJobQueue(settings.queue_url, region_name=settings.aws_region)
     queued = 0
     now = int(time.time())
+    local_times = parse_local_times(",".join(settings.automatic_schedule_local_times))
+    next_run_at = next_scheduled_timestamp(
+        now,
+        timezone_name=settings.automatic_schedule_timezone,
+        local_times=local_times,
+    )
+    in_schedule_window = is_in_scheduled_window(
+        now,
+        timezone_name=settings.automatic_schedule_timezone,
+        local_times=local_times,
+        window_seconds=settings.automatic_schedule_window_seconds,
+    )
     for user in store.list_automatic_users(limit=100, due_before=now):
         if user.consent_version != settings.disclosure_version:
             store.pause_automatic_user(
@@ -29,10 +42,18 @@ def lambda_handler(event: dict[str, Any] | None, context: Any) -> dict[str, Any]
                 user.consent_version,
             )
             continue
+        if not in_schedule_window:
+            store.claim_automatic_user(
+                user.user_id,
+                expected_next_run_at=user.next_run_at,
+                new_next_run_at=next_run_at,
+                connection_version=user.connection_version,
+            )
+            continue
         if not store.claim_automatic_user(
             user.user_id,
             expected_next_run_at=user.next_run_at,
-            new_next_run_at=now + settings.automatic_interval_seconds,
+            new_next_run_at=next_run_at,
             connection_version=user.connection_version,
         ):
             continue
