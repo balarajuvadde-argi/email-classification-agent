@@ -5,6 +5,7 @@ import json
 import logging
 import time
 from dataclasses import replace
+from datetime import UTC, datetime
 from threading import RLock
 from typing import Any, Protocol
 
@@ -21,6 +22,36 @@ from .universal_models import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+def _readable_time(timestamp: int | float | str | None) -> str:
+    try:
+        value = int(timestamp or 0)
+    except (TypeError, ValueError):
+        return ""
+    if value <= 0:
+        return "not set"
+    return datetime.fromtimestamp(value, tz=UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def _readable_json(raw: str) -> dict[str, Any] | list[Any] | None:
+    if not raw:
+        return None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    return value if isinstance(value, dict | list) else None
+
+
+def _with_readable_times(
+    value: dict[str, Any],
+    fields: tuple[str, ...],
+) -> dict[str, Any]:
+    for field in fields:
+        if field in value:
+            value[f"{field}_readable"] = _readable_time(value[field])
+    return value
 
 
 def secret_hash(value: str) -> str:
@@ -580,6 +611,7 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
         self._database_url = database_url
         self._init_schema()
         self._load_snapshot()
+        self._persist_snapshot()
 
     def _connect(self) -> Any:
         import psycopg
@@ -593,8 +625,15 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
                 CREATE TABLE IF NOT EXISTS inbox_pilot_state (
                     id TEXT PRIMARY KEY,
                     data JSONB NOT NULL,
-                    updated_at BIGINT NOT NULL
+                    updated_at BIGINT NOT NULL,
+                    updated_at_readable TEXT NOT NULL DEFAULT ''
                 )
+                """
+            )
+            cur.execute(
+                """
+                ALTER TABLE inbox_pilot_state
+                ADD COLUMN IF NOT EXISTS updated_at_readable TEXT NOT NULL DEFAULT ''
                 """
             )
 
@@ -610,20 +649,27 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
         from psycopg.types.json import Jsonb
 
         snapshot = self._snapshot()
+        now = int(time.time())
         with self._connect() as conn, conn.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO inbox_pilot_state (id, data, updated_at)
-                VALUES (%s, %s, %s)
+                INSERT INTO inbox_pilot_state (id, data, updated_at, updated_at_readable)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (id) DO UPDATE
-                SET data = EXCLUDED.data, updated_at = EXCLUDED.updated_at
+                SET data = EXCLUDED.data,
+                    updated_at = EXCLUDED.updated_at,
+                    updated_at_readable = EXCLUDED.updated_at_readable
                 """,
-                ("main", Jsonb(snapshot), int(time.time())),
+                ("main", Jsonb(snapshot), now, _readable_time(now)),
             )
 
     def _snapshot(self) -> dict[str, Any]:
+        now = int(time.time())
         with self._lock:
             return {
+                "snapshot_version": 2,
+                "generated_at": now,
+                "generated_at_readable": _readable_time(now),
                 "states": {
                     key: _oauth_state_to_dict(value)
                     for key, value in self.states.items()
@@ -653,12 +699,20 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
                     for (user_id, saved_at, policy_hash), value in self.policy_revisions.items()
                 },
                 "active_runs": {
-                    key: list(value)
+                    key: {
+                        "run_id": value[0],
+                        "expires_at": value[1],
+                        "expires_at_readable": _readable_time(value[1]),
+                        "connection_version": value[2],
+                    }
                     for key, value in self.active_runs.items()
-                    if value[1] > int(time.time())
+                    if value[1] > now
                 },
                 "quotas": {
-                    f"{user_id}\t{quota_name}\t{bucket}": count
+                    f"{user_id}\t{quota_name}\t{bucket}": {
+                        "count": count,
+                        "bucket": bucket,
+                    }
                     for (user_id, quota_name, bucket), count in self.quotas.items()
                 },
             }
@@ -692,12 +746,24 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
                 if len(parts := key.split("\t", 2)) == 3
             }
             self.active_runs = {
-                key: (str(value[0]), int(value[1]), str(value[2]))
+                key: (
+                    str(value["run_id"]),
+                    int(value["expires_at"]),
+                    str(value.get("connection_version") or ""),
+                )
+                if isinstance(value, dict)
+                else (str(value[0]), int(value[1]), str(value[2]))
                 for key, value in (snapshot.get("active_runs") or {}).items()
-                if isinstance(value, list | tuple) and len(value) == 3
+                if (
+                    isinstance(value, dict)
+                    and {"run_id", "expires_at"}.issubset(value.keys())
+                )
+                or (isinstance(value, list | tuple) and len(value) == 3)
             }
             self.quotas = {
-                (parts[0], parts[1], int(parts[2])): int(value)
+                (parts[0], parts[1], int(parts[2])): int(
+                    value.get("count") if isinstance(value, dict) else value
+                )
                 for key, value in (snapshot.get("quotas") or {}).items()
                 if len(parts := key.split("\t", 2)) == 3
             }
@@ -803,11 +869,12 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
 
 
 def _user_to_dict(user: UserRecord) -> dict[str, Any]:
-    return {
+    value = {
         "user_id": user.user_id,
         "email": user.email,
         "encrypted_grant": user.encrypted_grant,
         "policy_json": user.policy.model_dump_json() if user.policy else "",
+        "policy": user.policy.model_dump(mode="json") if user.policy else None,
         "created_at": user.created_at,
         "updated_at": user.updated_at,
         "next_run_at": user.next_run_at,
@@ -817,6 +884,10 @@ def _user_to_dict(user: UserRecord) -> dict[str, Any]:
         "connection_version": user.connection_version,
         "schedule_paused_for_consent": user.schedule_paused_for_consent,
     }
+    return _with_readable_times(
+        value,
+        ("created_at", "updated_at", "next_run_at", "consented_at"),
+    )
 
 
 def _user_from_dict(value: dict[str, Any]) -> UserRecord:
@@ -838,12 +909,13 @@ def _user_from_dict(value: dict[str, Any]) -> UserRecord:
 
 
 def _session_to_dict(record: SessionRecord) -> dict[str, Any]:
-    return {
+    value = {
         "user_id": record.user_id,
         "csrf_token": record.csrf_token,
         "expires_at": record.expires_at,
         "connection_version": record.connection_version,
     }
+    return _with_readable_times(value, ("expires_at",))
 
 
 def _session_from_dict(value: dict[str, Any]) -> SessionRecord:
@@ -856,7 +928,7 @@ def _session_from_dict(value: dict[str, Any]) -> SessionRecord:
 
 
 def _oauth_state_to_dict(record: OAuthStateRecord) -> dict[str, Any]:
-    return {
+    value = {
         "code_verifier": record.code_verifier,
         "expires_at": record.expires_at,
         "initiating_user_id": record.initiating_user_id,
@@ -867,6 +939,7 @@ def _oauth_state_to_dict(record: OAuthStateRecord) -> dict[str, Any]:
         "purpose": record.purpose,
         "initiating_connection_version": record.initiating_connection_version,
     }
+    return _with_readable_times(value, ("expires_at", "consented_at"))
 
 
 def _oauth_state_from_dict(value: dict[str, Any]) -> OAuthStateRecord:
@@ -900,7 +973,7 @@ def _outcome_from_dict(value: dict[str, Any]) -> UniversalOutcome:
 
 
 def _plan_to_dict(plan: ActionPlan) -> dict[str, Any]:
-    return {
+    value = {
         "user_id": plan.user_id,
         "policy_hash": plan.policy_hash,
         "mailbox": plan.mailbox,
@@ -908,6 +981,7 @@ def _plan_to_dict(plan: ActionPlan) -> dict[str, Any]:
         "expires_at": plan.expires_at,
         "connection_version": plan.connection_version,
     }
+    return _with_readable_times(value, ("expires_at",))
 
 
 def _plan_from_dict(value: dict[str, Any]) -> ActionPlan:
@@ -922,7 +996,7 @@ def _plan_from_dict(value: dict[str, Any]) -> ActionPlan:
 
 
 def _run_to_dict(run: RunRecord) -> dict[str, Any]:
-    return {
+    value = {
         "run_id": run.run_id,
         "user_id": run.user_id,
         "mode": run.mode,
@@ -932,12 +1006,17 @@ def _run_to_dict(run: RunRecord) -> dict[str, Any]:
         "updated_at": run.updated_at,
         "expires_at": run.expires_at,
         "report_json": run.report_json,
+        "report": _readable_json(run.report_json),
         "plan_id": run.plan_id,
         "error": run.error,
         "lease_expires_at": run.lease_expires_at,
         "attempts": run.attempts,
         "connection_version": run.connection_version,
     }
+    return _with_readable_times(
+        value,
+        ("created_at", "updated_at", "expires_at", "lease_expires_at"),
+    )
 
 
 def _run_from_dict(value: dict[str, Any]) -> RunRecord:
@@ -960,12 +1039,14 @@ def _run_from_dict(value: dict[str, Any]) -> RunRecord:
 
 
 def _policy_revision_to_dict(revision: PolicyRevision) -> dict[str, Any]:
-    return {
+    value = {
         "policy_hash": revision.policy_hash,
         "saved_at": revision.saved_at,
         "policy_json": revision.policy_json,
+        "policy": _readable_json(revision.policy_json),
         "connection_version": revision.connection_version,
     }
+    return _with_readable_times(value, ("saved_at",))
 
 
 def _policy_revision_from_dict(value: dict[str, Any]) -> PolicyRevision:

@@ -67,6 +67,12 @@ services:
         value: '10'
       - key: DEFAULT_AUTOMATIC_ENABLED
         value: 'true'
+      - key: AUTOMATIC_SCHEDULE_TIMEZONE
+        value: America/New_York
+      - key: AUTOMATIC_SCHEDULE_LOCAL_TIMES
+        value: 10:00,17:00
+      - key: AUTOMATIC_SCHEDULE_WINDOW_SECONDS
+        value: '900'
       - key: SCHEDULER_CLAIM_DELAY_SECONDS
         value: '3600'
       - key: SERVICE_NAME
@@ -92,7 +98,7 @@ services:
       - key: RUN_TTL_SECONDS
         value: '86400'
       - key: AUTOMATIC_INTERVAL_SECONDS
-        value: '900'
+        value: '43200'
       - key: WORKER_LEASE_SECONDS
         value: '330'
       - key: MANUAL_RUNS_PER_DAY
@@ -100,12 +106,12 @@ services:
       - key: EML_PREVIEWS_PER_DAY
         value: '5'
       - key: AUTOMATIC_RUNS_PER_DAY
-        value: '96'
+        value: '2'
 
   - type: cron
     name: inbox-pilot-morning-run
     runtime: python
-    schedule: '0 14 * * *'
+    schedule: '0 14,15 * * *'
     buildCommand: pip install -e .
     startCommand: email-classifier-scheduled
     envVars:
@@ -161,6 +167,12 @@ services:
         value: '10'
       - key: DEFAULT_AUTOMATIC_ENABLED
         value: 'true'
+      - key: AUTOMATIC_SCHEDULE_TIMEZONE
+        value: America/New_York
+      - key: AUTOMATIC_SCHEDULE_LOCAL_TIMES
+        value: 10:00,17:00
+      - key: AUTOMATIC_SCHEDULE_WINDOW_SECONDS
+        value: '900'
       - key: SCHEDULER_CLAIM_DELAY_SECONDS
         value: '3600'
       - key: ACQUISITION_MIAMI_DADE_LABEL_SUFFIX
@@ -209,7 +221,7 @@ services:
       - key: RUN_TTL_SECONDS
         value: '86400'
       - key: AUTOMATIC_INTERVAL_SECONDS
-        value: '900'
+        value: '43200'
       - key: WORKER_LEASE_SECONDS
         value: '330'
       - key: MANUAL_RUNS_PER_DAY
@@ -217,12 +229,12 @@ services:
       - key: EML_PREVIEWS_PER_DAY
         value: '5'
       - key: AUTOMATIC_RUNS_PER_DAY
-        value: '96'
+        value: '2'
 
   - type: cron
     name: inbox-pilot-evening-run
     runtime: python
-    schedule: '0 21 * * *'
+    schedule: '0 21,22 * * *'
     buildCommand: pip install -e .
     startCommand: email-classifier-scheduled
     envVars:
@@ -278,6 +290,12 @@ services:
         value: '10'
       - key: DEFAULT_AUTOMATIC_ENABLED
         value: 'true'
+      - key: AUTOMATIC_SCHEDULE_TIMEZONE
+        value: America/New_York
+      - key: AUTOMATIC_SCHEDULE_LOCAL_TIMES
+        value: 10:00,17:00
+      - key: AUTOMATIC_SCHEDULE_WINDOW_SECONDS
+        value: '900'
       - key: SCHEDULER_CLAIM_DELAY_SECONDS
         value: '3600'
       - key: ACQUISITION_MIAMI_DADE_LABEL_SUFFIX
@@ -326,7 +344,7 @@ services:
       - key: RUN_TTL_SECONDS
         value: '86400'
       - key: AUTOMATIC_INTERVAL_SECONDS
-        value: '900'
+        value: '43200'
       - key: WORKER_LEASE_SECONDS
         value: '330'
       - key: MANUAL_RUNS_PER_DAY
@@ -334,4 +352,4 @@ services:
       - key: EML_PREVIEWS_PER_DAY
         value: '5'
       - key: AUTOMATIC_RUNS_PER_DAY
-        value: '96'
+        value: '2'

@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import time
 
+from .schedule import is_in_scheduled_window, next_scheduled_timestamp, parse_local_times
 from .web_config import WebSettings
 from .web_runtime import WebRuntime
 
@@ -13,6 +14,18 @@ def run_due_users() -> int:
     settings = WebSettings.from_env()
     runtime = WebRuntime(settings)
     now = int(time.time())
+    local_times = parse_local_times(",".join(settings.automatic_schedule_local_times))
+    next_run_at = next_scheduled_timestamp(
+        now,
+        timezone_name=settings.automatic_schedule_timezone,
+        local_times=local_times,
+    )
+    in_schedule_window = is_in_scheduled_window(
+        now,
+        timezone_name=settings.automatic_schedule_timezone,
+        local_times=local_times,
+        window_seconds=settings.automatic_schedule_window_seconds,
+    )
     queued = 0
     for scheduled in runtime.store.list_automatic_users(limit=100, due_before=now):
         if scheduled.consent_version != settings.disclosure_version:
@@ -23,10 +36,18 @@ def run_due_users() -> int:
                 scheduled.consent_version,
             )
             continue
+        if not in_schedule_window:
+            runtime.store.claim_automatic_user(
+                scheduled.user_id,
+                expected_next_run_at=scheduled.next_run_at,
+                new_next_run_at=next_run_at,
+                connection_version=scheduled.connection_version,
+            )
+            continue
         if not runtime.store.claim_automatic_user(
             scheduled.user_id,
             expected_next_run_at=scheduled.next_run_at,
-            new_next_run_at=now + settings.scheduler_claim_delay_seconds,
+            new_next_run_at=next_run_at,
             connection_version=scheduled.connection_version,
         ):
             continue

@@ -161,13 +161,21 @@ Wait for Google settings to propagate, then redeploy/restart the Render service.
 The blueprint creates two Render Cron Jobs:
 
 ```text
-inbox-pilot-morning-run   0 14 * * *
-inbox-pilot-evening-run   0 21 * * *
+inbox-pilot-morning-run   0 14,15 * * *
+inbox-pilot-evening-run   0 21,22 * * *
 ```
 
-Render cron schedules are UTC. These defaults match 10:00 AM and 5:00 PM Florida time during
-daylight saving time. During standard time, adjust them to `0 15 * * *` and `0 22 * * *`,
-or use a scheduler that supports `America/New_York` directly.
+Render cron schedules are UTC, while the product schedule is evaluated in Miami time with:
+
+```text
+AUTOMATIC_SCHEDULE_TIMEZONE=America/New_York
+AUTOMATIC_SCHEDULE_LOCAL_TIMES=10:00,17:00
+AUTOMATIC_SCHEDULE_WINDOW_SECONDS=900
+```
+
+The extra UTC hours cover both daylight saving time and standard time. The application only
+queues runs inside the configured local-time windows, so users still get two automatic runs:
+10:00 AM and 5:00 PM Miami time.
 
 Each cron job runs:
 

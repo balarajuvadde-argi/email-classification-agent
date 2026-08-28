@@ -8,9 +8,11 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .config import secret_json
 from .policy_templates import ALL_ACQUISITIONS_PROMPT
+from .schedule import parse_local_times
 
 DEFAULT_CLASSIFICATION_PROMPT = ALL_ACQUISITIONS_PROMPT
 
@@ -36,11 +38,11 @@ class WebSettings:
     oauth_state_ttl_seconds: int = 600
     plan_ttl_seconds: int = 900
     run_ttl_seconds: int = 86_400
-    automatic_interval_seconds: int = 900
+    automatic_interval_seconds: int = 43_200
     worker_lease_seconds: int = 330
     manual_runs_per_day: int = 50
     eml_previews_per_day: int = 20
-    automatic_runs_per_day: int = 96
+    automatic_runs_per_day: int = 2
     service_name: str = "Inbox Pilot"
     operator_name: str = "Local development operator"
     privacy_contact_email: str = "privacy@localhost.invalid"
@@ -66,6 +68,9 @@ class WebSettings:
     default_max_messages_per_run: int = 10
     default_automatic_enabled: bool = True
     scheduler_claim_delay_seconds: int = 3_600
+    automatic_schedule_timezone: str = "America/New_York"
+    automatic_schedule_local_times: tuple[str, ...] = ("10:00", "17:00")
+    automatic_schedule_window_seconds: int = 900
 
     @property
     def production(self) -> bool:
@@ -125,13 +130,13 @@ class WebSettings:
             plan_ttl_seconds=int(os.getenv("ACTION_PLAN_TTL_SECONDS") or "900"),
             run_ttl_seconds=int(os.getenv("RUN_TTL_SECONDS") or "86400"),
             automatic_interval_seconds=int(
-                os.getenv("AUTOMATIC_INTERVAL_SECONDS") or "900"
+                os.getenv("AUTOMATIC_INTERVAL_SECONDS") or "43200"
             ),
             worker_lease_seconds=int(os.getenv("WORKER_LEASE_SECONDS") or "330"),
             manual_runs_per_day=int(os.getenv("MANUAL_RUNS_PER_DAY") or "50"),
             eml_previews_per_day=int(os.getenv("EML_PREVIEWS_PER_DAY") or "20"),
             automatic_runs_per_day=int(
-                os.getenv("AUTOMATIC_RUNS_PER_DAY") or "96"
+                os.getenv("AUTOMATIC_RUNS_PER_DAY") or "2"
             ),
             service_name=(os.getenv("SERVICE_NAME") or "Inbox Pilot").strip(),
             operator_name=(
@@ -182,6 +187,19 @@ class WebSettings:
             ).strip().casefold() == "true",
             scheduler_claim_delay_seconds=int(
                 os.getenv("SCHEDULER_CLAIM_DELAY_SECONDS") or "3600"
+            ),
+            automatic_schedule_timezone=(
+                os.getenv("AUTOMATIC_SCHEDULE_TIMEZONE") or "America/New_York"
+            ).strip(),
+            automatic_schedule_local_times=tuple(
+                value.strip()
+                for value in (
+                    os.getenv("AUTOMATIC_SCHEDULE_LOCAL_TIMES") or "10:00,17:00"
+                ).split(",")
+                if value.strip()
+            ),
+            automatic_schedule_window_seconds=int(
+                os.getenv("AUTOMATIC_SCHEDULE_WINDOW_SECONDS") or "900"
             ),
         )
         settings.validate()
@@ -285,6 +303,15 @@ class WebSettings:
             raise ValueError("DEFAULT_CLASSIFICATION_LABELS must not be empty")
         if not (60 <= self.scheduler_claim_delay_seconds <= 86_400):
             raise ValueError("SCHEDULER_CLAIM_DELAY_SECONDS must be between 60 and 86400")
+        try:
+            ZoneInfo(self.automatic_schedule_timezone)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("AUTOMATIC_SCHEDULE_TIMEZONE must be a valid IANA timezone") from exc
+        parse_local_times(",".join(self.automatic_schedule_local_times))
+        if not (60 <= self.automatic_schedule_window_seconds <= 3_600):
+            raise ValueError(
+                "AUTOMATIC_SCHEDULE_WINDOW_SECONDS must be between 60 and 3600"
+            )
 
 
 @lru_cache(maxsize=8)
