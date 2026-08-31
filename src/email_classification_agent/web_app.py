@@ -13,11 +13,12 @@ from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 from fastapi import BackgroundTasks, FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
+from .daily_report import build_daily_report_xlsx, daily_messages, local_date_key
 from .multitenant_store import secret_hash
 from .policy_templates import POLICY_TEMPLATES, get_policy_template
 from .universal_models import (
@@ -170,6 +171,40 @@ def _group_sessions_by_date(sessions: list[dict[str, Any]]) -> list[dict[str, An
             grouped.append({"date_label": session["date_label"], "sessions": []})
         grouped[-1]["sessions"].append(session)
     return grouped
+
+
+def _daily_report_options(runs: list[Any]) -> list[dict[str, Any]]:
+    grouped: dict[str, dict[str, Any]] = {}
+    for run in runs:
+        if run.status != "completed" or run.mode == "eml_test":
+            continue
+        date_key = local_date_key(run.created_at)
+        bucket = grouped.setdefault(
+            date_key,
+            {
+                "date": date_key,
+                "date_label": _format_run_date(run.created_at),
+                "latest_time_label": _format_run_time(run.created_at),
+                "run_count": 0,
+                "processed_count": 0,
+                "important_count": 0,
+            },
+        )
+        bucket["run_count"] += 1
+        messages = daily_messages([run], report_date=date_key)
+        bucket["processed_count"] += len(messages)
+        bucket["important_count"] += sum(1 for message in messages if message.is_important)
+    return sorted(grouped.values(), key=lambda item: item["date"], reverse=True)
+
+
+def _safe_report_filename(email: str, report_date: str) -> str:
+    account = "".join(
+        char if char.isalnum() or char in {"-", "_"} else "_"
+        for char in email.split("@", maxsplit=1)[0]
+    ).strip("_")
+    if not account:
+        account = "mailbox"
+    return f"InboxPilot_Important_Report_{report_date}_{account}.xlsx"
 
 
 def _error_page(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
@@ -537,6 +572,13 @@ def create_app(
                 ]),
                 run_sessions=(run_sessions := _group_run_sessions(runs)),
                 run_session_groups=_group_sessions_by_date(run_sessions),
+                daily_reports=_daily_report_options(
+                    [
+                        run
+                        for run in runtime.store.list_runs(user.user_id, 100)
+                        if run.connection_version == user.connection_version
+                    ]
+                ),
                 policy_revisions=runtime.store.list_policy_revisions(
                     user.user_id, user.connection_version, 20
                 ),
@@ -757,8 +799,45 @@ def create_app(
                 plan_minutes=max(1, settings.plan_ttl_seconds // 60),
                 run_date_label=_format_run_date(run.created_at),
                 run_time_label=_format_run_time(run.created_at),
+                run_report_date=local_date_key(run.created_at),
                 run_mode_label=_run_mode_label(run.mode),
             ),
+        )
+
+    @app.get("/reports/daily/{report_date}/download")
+    def download_daily_report(request: Request, report_date: str) -> Any:
+        authenticated = _session_user(request, runtime)
+        if not authenticated:
+            return RedirectResponse("/", status_code=303)
+        _, _, user = authenticated
+        try:
+            parsed_date = datetime.strptime(report_date, "%Y-%m-%d").date()
+        except ValueError:
+            return _error_page(request, "Report date must use YYYY-MM-DD format.", 400)
+        normalized_date = parsed_date.isoformat()
+        runs = [
+            run
+            for run in runtime.store.list_runs(user.user_id, 500)
+            if run.connection_version == user.connection_version
+            and run.status == "completed"
+            and run.mode != "eml_test"
+            and local_date_key(run.created_at) == normalized_date
+        ]
+        workbook = build_daily_report_xlsx(
+            user=user,
+            runs=runs,
+            report_date=normalized_date,
+        )
+        filename = _safe_report_filename(user.email, normalized_date)
+        return Response(
+            content=workbook,
+            media_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": f'attachment; filename="{filename}"',
+                "Cache-Control": "no-store",
+            },
         )
 
     @app.post("/runs/{run_id}/apply")

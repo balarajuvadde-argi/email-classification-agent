@@ -113,6 +113,13 @@ default automatic classifier at 10:00 AM and 5:00 PM in `America/New_York`; the 
 fire at both possible UTC offsets and the app gates execution so daylight saving time does
 not shift the client-facing schedule. Use a paid database plan before real public use.
 
+Completed daily runs also produce an on-demand Excel workbook from the dashboard. The workbook
+contains summary counts, important emails with the reason they matter, all processed decisions,
+and property verification rows. Email bodies are not written to the workbook. For pgAdmin review,
+Render Postgres keeps the compatibility snapshot in `inbox_pilot_state` and also maintains
+readable derived tables: `inbox_pilot_runs`, `inbox_pilot_run_messages`, and
+`inbox_pilot_run_properties`.
+
 ## Current launch status
 
 The code and deployment template are ready for a controlled staging deployment. It is not

@@ -96,6 +96,9 @@
     <button class="secondary" type="submit">Run saved policy again</button>
   </form>
   {% endif %}
+  {% if run.status == 'completed' and run.mode != 'eml_test' %}
+  <a class="secondary button-link" href="/reports/daily/{{ run_report_date }}/download">Download daily Excel report</a>
+  {% endif %}
   <a class="primary button-link" href="/dashboard">Return to workspace</a>
 </div>
 {% endblock %}

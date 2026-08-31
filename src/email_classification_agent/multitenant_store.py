@@ -8,6 +8,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from threading import RLock
 from typing import Any, Protocol
+from zoneinfo import ZoneInfo
 
 from .universal_models import (
     ActionPlan,
@@ -42,6 +43,18 @@ def _readable_json(raw: str) -> dict[str, Any] | list[Any] | None:
     except json.JSONDecodeError:
         return None
     return value if isinstance(value, dict | list) else None
+
+
+def _miami_date(timestamp: int) -> str:
+    return datetime.fromtimestamp(timestamp, tz=UTC).astimezone(
+        ZoneInfo("America/New_York")
+    ).date().isoformat()
+
+
+def _miami_datetime(timestamp: int) -> str:
+    return datetime.fromtimestamp(timestamp, tz=UTC).astimezone(
+        ZoneInfo("America/New_York")
+    ).strftime("%Y-%m-%d %I:%M %p %Z")
 
 
 def _with_readable_times(
@@ -636,6 +649,102 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
                 ADD COLUMN IF NOT EXISTS updated_at_readable TEXT NOT NULL DEFAULT ''
                 """
             )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inbox_pilot_runs (
+                    user_id TEXT NOT NULL,
+                    run_id TEXT NOT NULL,
+                    mailbox TEXT NOT NULL DEFAULT '',
+                    mode TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    policy_hash TEXT NOT NULL,
+                    connection_version TEXT NOT NULL DEFAULT '',
+                    created_at BIGINT NOT NULL,
+                    created_at_readable TEXT NOT NULL,
+                    updated_at BIGINT NOT NULL,
+                    updated_at_readable TEXT NOT NULL,
+                    expires_at BIGINT NOT NULL,
+                    expires_at_readable TEXT NOT NULL,
+                    run_date_miami TEXT NOT NULL,
+                    run_time_miami TEXT NOT NULL,
+                    scanned INTEGER NOT NULL DEFAULT 0,
+                    proposed INTEGER NOT NULL DEFAULT 0,
+                    labeled INTEGER NOT NULL DEFAULT 0,
+                    kept_unlabeled INTEGER NOT NULL DEFAULT 0,
+                    low_confidence INTEGER NOT NULL DEFAULT 0,
+                    failed INTEGER NOT NULL DEFAULT 0,
+                    dry_run BOOLEAN NOT NULL DEFAULT FALSE,
+                    processed_label TEXT NOT NULL DEFAULT '',
+                    plan_id TEXT NOT NULL DEFAULT '',
+                    error TEXT NOT NULL DEFAULT '',
+                    report_json JSONB,
+                    PRIMARY KEY (user_id, run_id)
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inbox_pilot_run_messages (
+                    user_id TEXT NOT NULL,
+                    run_id TEXT NOT NULL,
+                    row_index INTEGER NOT NULL,
+                    run_date_miami TEXT NOT NULL,
+                    run_time_miami TEXT NOT NULL,
+                    message_id TEXT NOT NULL DEFAULT '',
+                    thread_id TEXT NOT NULL DEFAULT '',
+                    subject TEXT NOT NULL DEFAULT '',
+                    sender TEXT NOT NULL DEFAULT '',
+                    proposed_label TEXT NOT NULL DEFAULT '',
+                    secondary_label TEXT NOT NULL DEFAULT '',
+                    confidence DOUBLE PRECISION NOT NULL DEFAULT 0,
+                    action TEXT NOT NULL DEFAULT '',
+                    reason TEXT NOT NULL DEFAULT '',
+                    evidence TEXT NOT NULL DEFAULT '',
+                    is_important BOOLEAN NOT NULL DEFAULT FALSE,
+                    why_important TEXT NOT NULL DEFAULT '',
+                    property_count INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY (user_id, run_id, row_index)
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inbox_pilot_run_properties (
+                    user_id TEXT NOT NULL,
+                    run_id TEXT NOT NULL,
+                    message_row_index INTEGER NOT NULL,
+                    property_index INTEGER NOT NULL,
+                    run_date_miami TEXT NOT NULL,
+                    email_subject TEXT NOT NULL DEFAULT '',
+                    address TEXT NOT NULL DEFAULT '',
+                    asking_price DOUBLE PRECISION,
+                    folio TEXT NOT NULL DEFAULT '',
+                    municipality TEXT NOT NULL DEFAULT '',
+                    land_use TEXT NOT NULL DEFAULT '',
+                    lookup_status TEXT NOT NULL DEFAULT '',
+                    is_folio_30 BOOLEAN NOT NULL DEFAULT FALSE,
+                    is_unincorporated BOOLEAN NOT NULL DEFAULT FALSE,
+                    has_double_lot BOOLEAN NOT NULL DEFAULT FALSE,
+                    qualifies BOOLEAN NOT NULL DEFAULT FALSE,
+                    lot_size_sqft DOUBLE PRECISION,
+                    reasons TEXT NOT NULL DEFAULT '',
+                    legal_description TEXT NOT NULL DEFAULT '',
+                    PRIMARY KEY (user_id, run_id, message_row_index, property_index)
+                )
+                """
+            )
+            cur.execute(
+                """
+                CREATE INDEX IF NOT EXISTS inbox_pilot_run_messages_user_date_idx
+                ON inbox_pilot_run_messages (user_id, run_date_miami, is_important)
+                """
+            )
+            cur.execute(
+                """
+                CREATE INDEX IF NOT EXISTS inbox_pilot_run_properties_user_date_idx
+                ON inbox_pilot_run_properties (user_id, run_date_miami, qualifies)
+                """
+            )
 
     def _load_snapshot(self) -> None:
         with self._connect() as conn, conn.cursor() as cur:
@@ -662,6 +771,136 @@ class PostgresMultiTenantStore(InMemoryMultiTenantStore):
                 """,
                 ("main", Jsonb(snapshot), now, _readable_time(now)),
             )
+            self._persist_normalized_run_tables(cur)
+
+    def _persist_normalized_run_tables(self, cur: Any) -> None:
+        from psycopg.types.json import Jsonb
+
+        now = int(time.time())
+        cur.execute(
+            """
+            DELETE FROM inbox_pilot_run_properties properties
+            USING inbox_pilot_runs runs
+            WHERE properties.user_id = runs.user_id
+              AND properties.run_id = runs.run_id
+              AND runs.expires_at <= %s
+            """,
+            (now,),
+        )
+        cur.execute(
+            """
+            DELETE FROM inbox_pilot_run_messages messages
+            USING inbox_pilot_runs runs
+            WHERE messages.user_id = runs.user_id
+              AND messages.run_id = runs.run_id
+              AND runs.expires_at <= %s
+            """,
+            (now,),
+        )
+        cur.execute("DELETE FROM inbox_pilot_runs WHERE expires_at <= %s", (now,))
+        with self._lock:
+            runs = list(self.runs.values())
+            users = dict(self.users)
+        for run in runs:
+            if not self._alive(run.expires_at):
+                continue
+            run_row = _normalized_run_row(run, users.get(run.user_id))
+            cur.execute(
+                """
+                INSERT INTO inbox_pilot_runs (
+                    user_id, run_id, mailbox, mode, status, policy_hash,
+                    connection_version, created_at, created_at_readable, updated_at,
+                    updated_at_readable, expires_at, expires_at_readable, run_date_miami,
+                    run_time_miami, scanned, proposed, labeled, kept_unlabeled,
+                    low_confidence, failed, dry_run, processed_label, plan_id, error,
+                    report_json
+                )
+                VALUES (
+                    %(user_id)s, %(run_id)s, %(mailbox)s, %(mode)s, %(status)s,
+                    %(policy_hash)s, %(connection_version)s, %(created_at)s,
+                    %(created_at_readable)s, %(updated_at)s, %(updated_at_readable)s,
+                    %(expires_at)s, %(expires_at_readable)s, %(run_date_miami)s,
+                    %(run_time_miami)s, %(scanned)s, %(proposed)s, %(labeled)s,
+                    %(kept_unlabeled)s, %(low_confidence)s, %(failed)s, %(dry_run)s,
+                    %(processed_label)s, %(plan_id)s, %(error)s, %(report_json)s
+                )
+                ON CONFLICT (user_id, run_id) DO UPDATE
+                SET mailbox = EXCLUDED.mailbox,
+                    mode = EXCLUDED.mode,
+                    status = EXCLUDED.status,
+                    policy_hash = EXCLUDED.policy_hash,
+                    connection_version = EXCLUDED.connection_version,
+                    created_at = EXCLUDED.created_at,
+                    created_at_readable = EXCLUDED.created_at_readable,
+                    updated_at = EXCLUDED.updated_at,
+                    updated_at_readable = EXCLUDED.updated_at_readable,
+                    expires_at = EXCLUDED.expires_at,
+                    expires_at_readable = EXCLUDED.expires_at_readable,
+                    run_date_miami = EXCLUDED.run_date_miami,
+                    run_time_miami = EXCLUDED.run_time_miami,
+                    scanned = EXCLUDED.scanned,
+                    proposed = EXCLUDED.proposed,
+                    labeled = EXCLUDED.labeled,
+                    kept_unlabeled = EXCLUDED.kept_unlabeled,
+                    low_confidence = EXCLUDED.low_confidence,
+                    failed = EXCLUDED.failed,
+                    dry_run = EXCLUDED.dry_run,
+                    processed_label = EXCLUDED.processed_label,
+                    plan_id = EXCLUDED.plan_id,
+                    error = EXCLUDED.error,
+                    report_json = EXCLUDED.report_json
+                """,
+                {**run_row, "report_json": Jsonb(run_row["report"]) if run_row["report"] else None},
+            )
+            cur.execute(
+                "DELETE FROM inbox_pilot_run_properties WHERE user_id = %s AND run_id = %s",
+                (run.user_id, run.run_id),
+            )
+            cur.execute(
+                "DELETE FROM inbox_pilot_run_messages WHERE user_id = %s AND run_id = %s",
+                (run.user_id, run.run_id),
+            )
+            for message_row in _normalized_message_rows(run):
+                cur.execute(
+                    """
+                    INSERT INTO inbox_pilot_run_messages (
+                        user_id, run_id, row_index, run_date_miami, run_time_miami,
+                        message_id, thread_id, subject, sender, proposed_label,
+                        secondary_label, confidence, action, reason, evidence,
+                        is_important, why_important, property_count
+                    )
+                    VALUES (
+                        %(user_id)s, %(run_id)s, %(row_index)s, %(run_date_miami)s,
+                        %(run_time_miami)s, %(message_id)s, %(thread_id)s,
+                        %(subject)s, %(sender)s, %(proposed_label)s,
+                        %(secondary_label)s, %(confidence)s, %(action)s, %(reason)s,
+                        %(evidence)s, %(is_important)s, %(why_important)s,
+                        %(property_count)s
+                    )
+                    """,
+                    message_row,
+                )
+                for property_row in _normalized_property_rows(message_row):
+                    cur.execute(
+                        """
+                        INSERT INTO inbox_pilot_run_properties (
+                            user_id, run_id, message_row_index, property_index,
+                            run_date_miami, email_subject, address, asking_price,
+                            folio, municipality, land_use, lookup_status, is_folio_30,
+                            is_unincorporated, has_double_lot, qualifies, lot_size_sqft,
+                            reasons, legal_description
+                        )
+                        VALUES (
+                            %(user_id)s, %(run_id)s, %(message_row_index)s,
+                            %(property_index)s, %(run_date_miami)s, %(email_subject)s,
+                            %(address)s, %(asking_price)s, %(folio)s, %(municipality)s,
+                            %(land_use)s, %(lookup_status)s, %(is_folio_30)s,
+                            %(is_unincorporated)s, %(has_double_lot)s, %(qualifies)s,
+                            %(lot_size_sqft)s, %(reasons)s, %(legal_description)s
+                        )
+                        """,
+                        property_row,
+                    )
 
     def _snapshot(self) -> dict[str, Any]:
         now = int(time.time())
@@ -1036,6 +1275,154 @@ def _run_from_dict(value: dict[str, Any]) -> RunRecord:
         attempts=int(value.get("attempts") or 0),
         connection_version=str(value.get("connection_version") or ""),
     )
+
+
+def _run_report(run: RunRecord) -> dict[str, Any]:
+    report = _readable_json(run.report_json)
+    return report if isinstance(report, dict) else {}
+
+
+def _important_label(label: str) -> bool:
+    folded = label.casefold()
+    return folded == "important" or folded.endswith("/important")
+
+
+def _outcome_important(outcome: dict[str, Any]) -> bool:
+    labels = (
+        str(outcome.get("proposed_label") or ""),
+        str(outcome.get("secondary_label") or ""),
+    )
+    if any(_important_label(label) for label in labels if label):
+        return True
+    return any(
+        bool(record.get("qualifies"))
+        for record in outcome.get("property_records") or []
+        if isinstance(record, dict)
+    )
+
+
+def _outcome_important_reason(outcome: dict[str, Any]) -> str:
+    records = [
+        record
+        for record in outcome.get("property_records") or []
+        if isinstance(record, dict) and bool(record.get("qualifies"))
+    ]
+    if not records:
+        return str(outcome.get("reason") or "")
+    reasons: list[str] = []
+    for record in records:
+        address = str(record.get("address") or "property")
+        details = "; ".join(str(item) for item in record.get("reasons") or [])
+        reasons.append(f"{address}: {details or 'matched target criteria'}")
+    return " | ".join(reasons)
+
+
+def _normalized_run_row(run: RunRecord, user: UserRecord | None) -> dict[str, Any]:
+    report = _run_report(run)
+    return {
+        "user_id": run.user_id,
+        "run_id": run.run_id,
+        "mailbox": str(report.get("mailbox") or (user.email if user else "")),
+        "mode": run.mode,
+        "status": run.status,
+        "policy_hash": run.policy_hash,
+        "connection_version": run.connection_version,
+        "created_at": run.created_at,
+        "created_at_readable": _readable_time(run.created_at),
+        "updated_at": run.updated_at,
+        "updated_at_readable": _readable_time(run.updated_at),
+        "expires_at": run.expires_at,
+        "expires_at_readable": _readable_time(run.expires_at),
+        "run_date_miami": _miami_date(run.created_at),
+        "run_time_miami": _miami_datetime(run.created_at),
+        "scanned": int(report.get("scanned") or 0),
+        "proposed": int(report.get("proposed") or 0),
+        "labeled": int(report.get("labeled") or 0),
+        "kept_unlabeled": int(report.get("kept_unlabeled") or 0),
+        "low_confidence": int(report.get("low_confidence") or 0),
+        "failed": int(report.get("failed") or 0),
+        "dry_run": bool(report.get("dry_run")),
+        "processed_label": str(report.get("processed_label") or ""),
+        "plan_id": run.plan_id,
+        "error": run.error,
+        "report": report,
+    }
+
+
+def _normalized_message_rows(run: RunRecord) -> list[dict[str, Any]]:
+    report = _run_report(run)
+    rows: list[dict[str, Any]] = []
+    for index, outcome in enumerate(report.get("outcomes") or [], start=1):
+        if not isinstance(outcome, dict):
+            continue
+        property_records = tuple(
+            record
+            for record in outcome.get("property_records") or []
+            if isinstance(record, dict)
+        )
+        important = _outcome_important(outcome)
+        rows.append(
+            {
+                "user_id": run.user_id,
+                "run_id": run.run_id,
+                "row_index": index,
+                "run_date_miami": _miami_date(run.created_at),
+                "run_time_miami": _miami_datetime(run.created_at),
+                "message_id": str(outcome.get("message_id") or ""),
+                "thread_id": str(outcome.get("thread_id") or ""),
+                "subject": str(outcome.get("subject") or ""),
+                "sender": str(outcome.get("sender") or ""),
+                "proposed_label": str(outcome.get("proposed_label") or ""),
+                "secondary_label": str(outcome.get("secondary_label") or ""),
+                "confidence": float(outcome.get("confidence") or 0.0),
+                "action": str(outcome.get("action") or ""),
+                "reason": str(outcome.get("reason") or ""),
+                "evidence": "; ".join(str(item) for item in outcome.get("evidence") or []),
+                "is_important": important,
+                "why_important": _outcome_important_reason(outcome) if important else "",
+                "property_count": len(property_records),
+                "_property_records": property_records,
+            }
+        )
+    return rows
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _normalized_property_rows(message_row: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for index, record in enumerate(message_row.get("_property_records") or [], start=1):
+        rows.append(
+            {
+                "user_id": message_row["user_id"],
+                "run_id": message_row["run_id"],
+                "message_row_index": message_row["row_index"],
+                "property_index": index,
+                "run_date_miami": message_row["run_date_miami"],
+                "email_subject": message_row["subject"],
+                "address": str(record.get("address") or ""),
+                "asking_price": _optional_float(record.get("asking_price")),
+                "folio": str(record.get("folio") or ""),
+                "municipality": str(record.get("municipality") or ""),
+                "land_use": str(record.get("land_use") or ""),
+                "lookup_status": str(record.get("lookup_status") or ""),
+                "is_folio_30": bool(record.get("is_folio_30")),
+                "is_unincorporated": bool(record.get("is_unincorporated")),
+                "has_double_lot": bool(record.get("has_double_lot")),
+                "qualifies": bool(record.get("qualifies")),
+                "lot_size_sqft": _optional_float(record.get("lot_size_sqft")),
+                "reasons": "; ".join(str(item) for item in record.get("reasons") or []),
+                "legal_description": str(record.get("legal_description") or ""),
+            }
+        )
+    return rows
 
 
 def _policy_revision_to_dict(revision: PolicyRevision) -> dict[str, Any]:

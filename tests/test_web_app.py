@@ -1,9 +1,12 @@
 import json
 import time
+from io import BytesIO
+from zipfile import ZipFile
 
 from cryptography.fernet import Fernet
 from fastapi.testclient import TestClient
 
+from email_classification_agent.daily_report import local_date_key
 from email_classification_agent.multitenant_store import InMemoryMultiTenantStore
 from email_classification_agent.token_security import FernetTokenCipher
 from email_classification_agent.universal_models import (
@@ -288,3 +291,55 @@ def test_user_cannot_read_another_users_run() -> None:
 
     assert response.status_code == 404
     assert "No Gmail action was taken" in response.text
+
+
+def test_daily_report_download_is_scoped_to_authenticated_user() -> None:
+    policy = ClassificationPolicy(
+        prompt="Label acquisition opportunities and news.",
+        labels=["Acquisitions/Wholesale/Miami-Dade/Important", "News"],
+    )
+    client, store = _authenticated_client(policy)
+    now = int(time.time())
+    report = {
+        "mailbox": "user@example.com",
+        "scanned": 1,
+        "outcomes": [
+            {
+                "message_id": "gmail-1",
+                "thread_id": "thread-1",
+                "subject": "Target property",
+                "sender": "Deals <deals@example.com>",
+                "proposed_label": "Acquisitions/Wholesale",
+                "secondary_label": "Acquisitions/Wholesale/Miami-Dade/Important",
+                "confidence": 0.99,
+                "action": "label_and_move",
+                "reason": "Target property match.",
+                "evidence": ["Folio 30"],
+            }
+        ],
+    }
+    store.put_run(
+        RunRecord(
+            run_id="run-report",
+            user_id="u1",
+            mode="automatic",
+            status="completed",
+            policy_hash="hash",
+            created_at=now,
+            updated_at=now,
+            expires_at=now + 60,
+            report_json=json.dumps(report),
+            connection_version="v1",
+        )
+    )
+
+    response = client.get(f"/reports/daily/{local_date_key(now)}/download")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    assert "InboxPilot_Important_Report" in response.headers["content-disposition"]
+    with ZipFile(BytesIO(response.content)) as archive:
+        important_sheet = archive.read("xl/worksheets/sheet2.xml").decode()
+    assert "Target property" in important_sheet

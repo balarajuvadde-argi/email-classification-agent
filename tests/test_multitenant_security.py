@@ -8,6 +8,9 @@ from google.oauth2.credentials import Credentials
 from email_classification_agent.multitenant_store import (
     InMemoryMultiTenantStore,
     _expected_transaction_condition,
+    _normalized_message_rows,
+    _normalized_property_rows,
+    _normalized_run_row,
     _oauth_state_to_dict,
     _policy_revision_to_dict,
     _run_to_dict,
@@ -252,6 +255,76 @@ def test_run_and_policy_revision_snapshots_include_readable_json_and_times() -> 
     assert run_data["lease_expires_at_readable"] == "not set"
     assert revision_data["policy"]["labels"] == ["Finance"]
     assert revision_data["saved_at_readable"] == "2023-11-14 22:14:10 UTC"
+
+
+def test_normalized_run_rows_are_pgadmin_readable() -> None:
+    run = RunRecord(
+        run_id="run-normalized",
+        user_id="u1",
+        mode="automatic",
+        status="completed",
+        policy_hash="hash",
+        created_at=1_700_000_000,
+        updated_at=1_700_000_100,
+        expires_at=1_700_086_400,
+        connection_version="v1",
+        report_json=json.dumps(
+            {
+                "mailbox": "buyer@example.com",
+                "scanned": 1,
+                "proposed": 1,
+                "labeled": 1,
+                "outcomes": [
+                    {
+                        "message_id": "m1",
+                        "thread_id": "t1",
+                        "subject": "Dade County target",
+                        "sender": "Deals <deals@example.com>",
+                        "proposed_label": "Acquisitions/Wholesale",
+                        "secondary_label": (
+                            "Acquisitions/Wholesale/Miami-Dade/Important"
+                        ),
+                        "confidence": 0.99,
+                        "action": "label_and_move",
+                        "reason": "Matched target property criteria.",
+                        "evidence": ["Folio 30"],
+                        "property_records": [
+                            {
+                                "address": "16225 NE 2nd Ave",
+                                "asking_price": 262500,
+                                "folio": "30-2218-007-2720",
+                                "is_folio_30": True,
+                                "is_unincorporated": True,
+                                "has_double_lot": True,
+                                "qualifies": True,
+                                "reasons": ["price within target"],
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+    )
+    user = UserRecord(
+        user_id="u1",
+        email="buyer@example.com",
+        encrypted_grant="cipher",
+        connection_version="v1",
+    )
+
+    run_row = _normalized_run_row(run, user)
+    message_rows = _normalized_message_rows(run)
+    property_rows = _normalized_property_rows(message_rows[0])
+
+    assert run_row["mailbox"] == "buyer@example.com"
+    assert run_row["run_date_miami"] == "2023-11-14"
+    assert run_row["run_time_miami"] == "2023-11-14 05:13 PM EST"
+    assert run_row["scanned"] == 1
+    assert message_rows[0]["subject"] == "Dade County target"
+    assert message_rows[0]["is_important"] is True
+    assert "16225 NE 2nd Ave" in message_rows[0]["why_important"]
+    assert property_rows[0]["address"] == "16225 NE 2nd Ave"
+    assert property_rows[0]["qualifies"] is True
 
 
 def test_automatic_users_are_due_and_claimed_atomically_in_memory() -> None:
