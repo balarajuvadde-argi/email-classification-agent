@@ -125,6 +125,22 @@ def test_automatic_quota_must_cover_the_configured_cadence() -> None:
         settings.validate()
 
 
+def test_previous_day_scan_is_the_default_automatic_mode() -> None:
+    settings = _https_local_settings()
+
+    assert settings.automatic_scan_mode == "previous_day"
+    assert settings.automatic_scan_timezone == "America/New_York"
+    assert settings.automatic_scan_lookback_days == 1
+    settings.validate()
+
+
+def test_invalid_automatic_scan_mode_fails_closed() -> None:
+    settings = replace(_https_local_settings(), automatic_scan_mode="random")
+
+    with pytest.raises(ValueError, match="AUTOMATIC_SCAN_MODE"):
+        settings.validate()
+
+
 def test_notice_revision_changes_the_consent_version() -> None:
     first = _production_settings()
     second = replace(first, privacy_notice_version="2026-08-20.2")

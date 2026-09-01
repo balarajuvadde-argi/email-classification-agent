@@ -111,7 +111,9 @@ and follow [`docs/MVP_DEPLOYMENT.md`](docs/MVP_DEPLOYMENT.md). With `DATABASE_UR
 profile persists tenant state in Render Postgres and includes two cron jobs that run the
 default automatic classifier at 10:00 AM and 5:00 PM in `America/New_York`; the cron jobs
 fire at both possible UTC offsets and the app gates execution so daylight saving time does
-not shift the client-facing schedule. Use a paid database plan before real public use.
+not shift the client-facing schedule. Scheduled runs default to scanning the previous Miami
+calendar day only, using Gmail `after:` and `before:` date operators. Use a paid database plan
+before real public use.
 
 ## Current launch status
 

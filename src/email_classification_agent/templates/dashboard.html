@@ -133,7 +133,7 @@
           <input name="automatic_enabled" type="checkbox" value="yes" {% if policy and policy.automatic_enabled %}checked{% endif %} {% if not consent_current or not policy or user.last_previewed_activation_hash != policy.activation_hash %}disabled{% endif %}>
           <span class="automation-copy">
             <strong>Enable scheduled classification</strong>
-            <small>A successful preview of this exact policy is required first. Low-confidence messages are left untouched.</small>
+            <small>A successful preview of this exact policy is required first. Scheduled runs scan the previous Miami calendar day; low-confidence messages are left untouched.</small>
           </span>
           <span class="switch-visual" aria-hidden="true"></span>
         </label>

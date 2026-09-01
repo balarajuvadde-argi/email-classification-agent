@@ -73,6 +73,12 @@ services:
         value: 10:00,17:00
       - key: AUTOMATIC_SCHEDULE_WINDOW_SECONDS
         value: '900'
+      - key: AUTOMATIC_SCAN_MODE
+        value: previous_day
+      - key: AUTOMATIC_SCAN_TIMEZONE
+        value: America/New_York
+      - key: AUTOMATIC_SCAN_LOOKBACK_DAYS
+        value: '1'
       - key: SCHEDULER_CLAIM_DELAY_SECONDS
         value: '3600'
       - key: SERVICE_NAME
@@ -173,6 +179,12 @@ services:
         value: 10:00,17:00
       - key: AUTOMATIC_SCHEDULE_WINDOW_SECONDS
         value: '900'
+      - key: AUTOMATIC_SCAN_MODE
+        value: previous_day
+      - key: AUTOMATIC_SCAN_TIMEZONE
+        value: America/New_York
+      - key: AUTOMATIC_SCAN_LOOKBACK_DAYS
+        value: '1'
       - key: SCHEDULER_CLAIM_DELAY_SECONDS
         value: '3600'
       - key: ACQUISITION_MIAMI_DADE_LABEL_SUFFIX
@@ -296,6 +308,12 @@ services:
         value: 10:00,17:00
       - key: AUTOMATIC_SCHEDULE_WINDOW_SECONDS
         value: '900'
+      - key: AUTOMATIC_SCAN_MODE
+        value: previous_day
+      - key: AUTOMATIC_SCAN_TIMEZONE
+        value: America/New_York
+      - key: AUTOMATIC_SCAN_LOOKBACK_DAYS
+        value: '1'
       - key: SCHEDULER_CLAIM_DELAY_SECONDS
         value: '3600'
       - key: ACQUISITION_MIAMI_DADE_LABEL_SUFFIX

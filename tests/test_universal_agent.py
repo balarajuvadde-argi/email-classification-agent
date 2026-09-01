@@ -589,6 +589,30 @@ def test_automatic_run_skips_processed_messages() -> None:
     assert '-label:"EmailAgent/Processed/' in gmail.query
 
 
+def test_automatic_run_uses_scheduled_query_override() -> None:
+    gmail = _Gmail()
+    classifier = _Classifier(
+        UniversalDecision(label="Finance", confidence=0.96, reason="Invoice", evidence=[])
+    )
+    policy = ClassificationPolicy(
+        prompt="Label all invoices and payment receipts as Finance.",
+        labels=["Finance"],
+        gmail_query="in:inbox newer_than:30d",
+        automatic_enabled=True,
+    )
+
+    UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).run_automatic(
+        policy,
+        gmail_query_override="in:inbox -in:spam -in:trash after:2026/8/31 before:2026/9/1",
+    )
+
+    assert "newer_than:30d" not in gmail.query
+    assert "after:2026/8/31 before:2026/9/1" in gmail.query
+    assert '-label:"EmailAgent/Processed/' in gmail.query
+
+
 def test_preview_processes_candidates_newest_first_even_when_gmail_ids_are_unordered() -> None:
     gmail = _Gmail()
     resources = {

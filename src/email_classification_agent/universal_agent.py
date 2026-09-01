@@ -258,10 +258,15 @@ class UniversalClassificationAgent:
     def preview(self, policy: ClassificationPolicy) -> UniversalReport:
         return self._run(policy, dry_run=True)
 
-    def run_automatic(self, policy: ClassificationPolicy) -> UniversalReport:
+    def run_automatic(
+        self,
+        policy: ClassificationPolicy,
+        *,
+        gmail_query_override: str | None = None,
+    ) -> UniversalReport:
         if not policy.automatic_enabled:
             raise RuntimeError("Automatic classification is disabled for this user")
-        return self._run(policy, dry_run=False)
+        return self._run(policy, dry_run=False, gmail_query_override=gmail_query_override)
 
     def apply_plan(self, policy: ClassificationPolicy, plan: ActionPlan) -> UniversalReport:
         self._operation_guard()
@@ -397,7 +402,13 @@ class UniversalClassificationAgent:
                 )
         return report
 
-    def _run(self, policy: ClassificationPolicy, *, dry_run: bool) -> UniversalReport:
+    def _run(
+        self,
+        policy: ClassificationPolicy,
+        *,
+        dry_run: bool,
+        gmail_query_override: str | None = None,
+    ) -> UniversalReport:
         self._operation_guard()
         mailbox = self._verified_mailbox()
         report = UniversalReport(
@@ -421,11 +432,8 @@ class UniversalClassificationAgent:
                 visible=True,
                 create=not dry_run,
             )
-        query = (
-            policy.gmail_query
-            if dry_run
-            else f'{policy.gmail_query} -label:"{policy.processed_label}"'
-        )
+        base_query = gmail_query_override or policy.gmail_query
+        query = base_query if dry_run else f'{base_query} -label:"{policy.processed_label}"'
         self._operation_guard()
         message_limit = policy.max_messages_per_run
         candidate_limit = _candidate_scan_window(message_limit)

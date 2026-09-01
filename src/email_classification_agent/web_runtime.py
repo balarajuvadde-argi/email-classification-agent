@@ -23,6 +23,7 @@ from .multitenant_store import (
     PostgresMultiTenantStore,
 )
 from .property_appraiser import MiamiDadePropertyClient
+from .scan_window import automatic_query
 from .token_security import (
     FernetTokenCipher,
     KmsTokenCipher,
@@ -467,7 +468,16 @@ class WebRuntime:
                     else ""
                 )
             elif running.mode == "automatic":
-                report = agent.run_automatic(user.policy)
+                report = agent.run_automatic(
+                    user.policy,
+                    gmail_query_override=automatic_query(
+                        user.policy.gmail_query,
+                        mode=self.settings.automatic_scan_mode,
+                        now=now,
+                        timezone_name=self.settings.automatic_scan_timezone,
+                        lookback_days=self.settings.automatic_scan_lookback_days,
+                    ),
+                )
                 plan_id = ""
             elif running.mode == "apply":
                 plan = self.store.get_plan(running.plan_id)

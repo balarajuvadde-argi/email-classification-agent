@@ -171,11 +171,24 @@ Render cron schedules are UTC, while the product schedule is evaluated in Miami 
 AUTOMATIC_SCHEDULE_TIMEZONE=America/New_York
 AUTOMATIC_SCHEDULE_LOCAL_TIMES=10:00,17:00
 AUTOMATIC_SCHEDULE_WINDOW_SECONDS=900
+AUTOMATIC_SCAN_MODE=previous_day
+AUTOMATIC_SCAN_TIMEZONE=America/New_York
+AUTOMATIC_SCAN_LOOKBACK_DAYS=1
 ```
 
 The extra UTC hours cover both daylight saving time and standard time. The application only
 queues runs inside the configured local-time windows, so users still get two automatic runs:
 10:00 AM and 5:00 PM Miami time.
+
+With the default scan mode, those automatic runs classify only the previous Miami calendar
+day. For example, a scheduled run on September 1, 2026 builds a Gmail source window like:
+
+```text
+after:2026/8/31 before:2026/9/1
+```
+
+Manual previews still use the user's saved Inbox query directly. To make scheduled runs use
+the saved query without a previous-day date window, set `AUTOMATIC_SCAN_MODE=default`.
 
 Each cron job runs:
 

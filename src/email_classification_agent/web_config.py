@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .config import secret_json
 from .policy_templates import ALL_ACQUISITIONS_PROMPT
+from .scan_window import automatic_query
 from .schedule import parse_local_times
 
 DEFAULT_CLASSIFICATION_PROMPT = ALL_ACQUISITIONS_PROMPT
@@ -71,6 +72,9 @@ class WebSettings:
     automatic_schedule_timezone: str = "America/New_York"
     automatic_schedule_local_times: tuple[str, ...] = ("10:00", "17:00")
     automatic_schedule_window_seconds: int = 900
+    automatic_scan_mode: str = "previous_day"
+    automatic_scan_timezone: str = "America/New_York"
+    automatic_scan_lookback_days: int = 1
 
     @property
     def production(self) -> bool:
@@ -201,6 +205,13 @@ class WebSettings:
             automatic_schedule_window_seconds=int(
                 os.getenv("AUTOMATIC_SCHEDULE_WINDOW_SECONDS") or "900"
             ),
+            automatic_scan_mode=(os.getenv("AUTOMATIC_SCAN_MODE") or "previous_day").strip(),
+            automatic_scan_timezone=(
+                os.getenv("AUTOMATIC_SCAN_TIMEZONE") or "America/New_York"
+            ).strip(),
+            automatic_scan_lookback_days=int(
+                os.getenv("AUTOMATIC_SCAN_LOOKBACK_DAYS") or "1"
+            ),
         )
         settings.validate()
         return settings
@@ -312,6 +323,20 @@ class WebSettings:
             raise ValueError(
                 "AUTOMATIC_SCHEDULE_WINDOW_SECONDS must be between 60 and 3600"
             )
+        if self.automatic_scan_mode.casefold() not in {"default", "previous_day"}:
+            raise ValueError("AUTOMATIC_SCAN_MODE must be default or previous_day")
+        try:
+            ZoneInfo(self.automatic_scan_timezone)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("AUTOMATIC_SCAN_TIMEZONE must be a valid IANA timezone") from exc
+        if not (1 <= self.automatic_scan_lookback_days <= 7):
+            raise ValueError("AUTOMATIC_SCAN_LOOKBACK_DAYS must be between 1 and 7")
+        automatic_query(
+            self.default_gmail_query,
+            mode=self.automatic_scan_mode,
+            timezone_name=self.automatic_scan_timezone,
+            lookback_days=self.automatic_scan_lookback_days,
+        )
 
 
 @lru_cache(maxsize=8)
