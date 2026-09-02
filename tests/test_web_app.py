@@ -315,6 +315,21 @@ def test_daily_report_download_is_scoped_to_authenticated_user() -> None:
                 "action": "label_and_move",
                 "reason": "Target property match.",
                 "evidence": ["Folio 30"],
+                "property_records": [
+                    {
+                        "address": "16225 NE 2nd Ave",
+                        "asking_price": 250000,
+                        "folio": "30-2218-007-2720",
+                        "municipality": "UNINCORPORATED COUNTY",
+                        "land_use": "RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                        "lookup_status": "verified",
+                        "is_folio_30": True,
+                        "is_unincorporated": True,
+                        "has_double_lot": True,
+                        "qualifies": True,
+                        "reasons": ["matched target property criteria"],
+                    }
+                ],
             }
         ],
     }
@@ -339,7 +354,10 @@ def test_daily_report_download_is_scoped_to_authenticated_user() -> None:
     assert response.headers["content-type"] == (
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    assert "InboxPilot_Important_Report" in response.headers["content-disposition"]
+    assert "InboxPilot_Qualified_Acquisition_Properties" in response.headers[
+        "content-disposition"
+    ]
     with ZipFile(BytesIO(response.content)) as archive:
-        important_sheet = archive.read("xl/worksheets/sheet2.xml").decode()
-    assert "Target property" in important_sheet
+        properties_sheet = archive.read("xl/worksheets/sheet1.xml").decode()
+    assert "Target property" in properties_sheet
+    assert "16225 NE 2nd Ave" in properties_sheet

@@ -18,7 +18,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
 
-from .daily_report import build_daily_report_xlsx, daily_messages, local_date_key
+from .daily_report import (
+    build_daily_report_xlsx,
+    daily_messages,
+    local_date_key,
+    qualified_acquisition_properties,
+)
 from .multitenant_store import secret_hash
 from .policy_templates import POLICY_TEMPLATES, get_policy_template
 from .universal_models import (
@@ -186,14 +191,20 @@ def _daily_report_options(runs: list[Any]) -> list[dict[str, Any]]:
                 "date_label": _format_run_date(run.created_at),
                 "latest_time_label": _format_run_time(run.created_at),
                 "run_count": 0,
-                "processed_count": 0,
-                "important_count": 0,
+                "acquisition_count": 0,
+                "qualified_property_count": 0,
             },
         )
         bucket["run_count"] += 1
         messages = daily_messages([run], report_date=date_key)
-        bucket["processed_count"] += len(messages)
-        bucket["important_count"] += sum(1 for message in messages if message.is_important)
+        bucket["acquisition_count"] += sum(
+            1
+            for message in messages
+            if (message.proposed_label or "").casefold().startswith("acquisitions/")
+        )
+        bucket["qualified_property_count"] += len(
+            qualified_acquisition_properties([run], report_date=date_key)
+        )
     return sorted(grouped.values(), key=lambda item: item["date"], reverse=True)
 
 
@@ -204,7 +215,7 @@ def _safe_report_filename(email: str, report_date: str) -> str:
     ).strip("_")
     if not account:
         account = "mailbox"
-    return f"InboxPilot_Important_Report_{report_date}_{account}.xlsx"
+    return f"InboxPilot_Qualified_Acquisition_Properties_{report_date}_{account}.xlsx"
 
 
 def _error_page(request: Request, message: str, status_code: int = 400) -> HTMLResponse:
@@ -344,14 +355,15 @@ def create_app(
             raise
         duration_ms = (time.perf_counter() - started_at) * 1000
         log_method = LOGGER.warning if response.status_code >= 400 else LOGGER.info
-        log_method(
-            "request_complete request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
-            request_id,
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
-        )
+        if request.url.path != "/health" or response.status_code >= 400:
+            log_method(
+                "request_complete request_id=%s method=%s path=%s status=%s duration_ms=%.1f",
+                request_id,
+                request.method,
+                request.url.path,
+                response.status_code,
+                duration_ms,
+            )
         response.headers["X-Request-ID"] = request_id
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; style-src 'self'; img-src 'self' data:; "

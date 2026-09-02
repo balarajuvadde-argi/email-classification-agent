@@ -203,8 +203,8 @@
   <div class="section-heading-row">
     <div>
       <p class="eyebrow">Daily review</p>
-      <h2>Important email reports</h2>
-      <p class="section-subtitle">Download one Excel workbook per day with the important emails, reasons, labels, and property details from completed runs.</p>
+      <h2>Qualified property reports</h2>
+      <p class="section-subtitle">Download one Excel workbook per day with only qualified acquisition properties from Wholesale, On Market, and Off Market emails.</p>
     </div>
     {% if daily_reports %}<span class="section-count">{{ daily_reports|length }} days</span>{% endif %}
   </div>
@@ -218,20 +218,20 @@
       </span>
       <span class="activity-main">
         <strong>{{ report.date_label }} report</strong>
-        <small class="activity-readable-meta">{{ report.processed_count }} processed rows Â· {{ report.important_count }} important Â· {{ report.run_count }} completed runs</small>
-        <small>Miami date {{ report.date }} Â· latest run {{ report.latest_time_label }}</small>
+        <small class="activity-readable-meta">{{ report.qualified_property_count }} qualified properties · {{ report.acquisition_count }} acquisition emails · {{ report.run_count }} completed runs</small>
+        <small>Miami date {{ report.date }} · latest run {{ report.latest_time_label }}</small>
       </span>
       <span class="run-mode-pill">Excel</span>
       <span class="run-status status-completed">Download</span>
-      <span class="row-arrow">â†“</span>
+      <span class="row-arrow">Download</span>
     </a>
     {% endfor %}
   </div>
   {% else %}
   <div class="empty-activity">
-    <span class="empty-icon">âœ¦</span>
+    <span class="empty-icon">*</span>
     <strong>No daily reports yet</strong>
-    <p>Run a preview, apply, or scheduled classification. Completed daily results will appear here for Excel download.</p>
+    <p>Run a preview, apply, or scheduled classification. Completed days with qualifying acquisition properties will appear here for Excel download.</p>
   </div>
   {% endif %}
 </section>

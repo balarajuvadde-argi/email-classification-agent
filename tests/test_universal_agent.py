@@ -515,6 +515,43 @@ def test_property_lookup_only_runs_after_miami_dade_zip_match() -> None:
     assert property_client.calls == []
 
 
+def test_property_lookup_runs_for_on_market_miami_dade_acquisition() -> None:
+    gmail = _Gmail()
+    gmail.get_message = lambda message_id: _listing_resource(message_id=message_id)
+    property_client = _PropertyClient(
+        [
+            PropertyRecord(
+                address="1029 NW 42nd St",
+                asking_price=250_000,
+                folio="30-3121-019-0190",
+                municipality="UNINCORPORATED COUNTY",
+                land_use="RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                legal_description="LOTS 4 & 5 BLK 2",
+                lot_size_sqft=11_000,
+                lookup_status="verified",
+                qualifies=True,
+                is_folio_30=True,
+                has_double_lot=True,
+                is_unincorporated=True,
+                reasons=("asking price is at or below target",),
+            )
+        ]
+    )
+
+    report = UniversalClassificationAgent(
+        gmail,
+        _Classifier(UniversalDecision(label=None, confidence=1, reason="No model", evidence=[])),
+        expected_email="user@example.com",
+        property_client=property_client,
+    ).preview(_acquisition_policy())
+
+    outcome = report.outcomes[0]
+    assert outcome.proposed_label == "Acquisitions/On Market"
+    assert outcome.secondary_label == "Acquisitions/On Market/Miami-Dade/Important"
+    assert outcome.property_records[0]["qualifies"] is True
+    assert property_client.calls
+
+
 def test_miami_dade_sublabel_is_added_during_apply() -> None:
     gmail = _Gmail()
     gmail.get_message = _wholesale_resource

@@ -35,6 +35,32 @@ class DailyReportMessage:
     why_important: str
 
 
+@dataclass(frozen=True, slots=True)
+class QualifiedAcquisitionProperty:
+    run_id: str
+    run_mode: str
+    run_time_label: str
+    message_id: str
+    subject: str
+    sender: str
+    primary_label: str
+    secondary_label: str
+    confidence: float
+    why_important: str
+    address: str
+    asking_price: float | None
+    folio: str
+    municipality: str
+    land_use: str
+    lookup_status: str
+    is_folio_30: bool
+    is_unincorporated: bool
+    has_double_lot: bool
+    lot_size_sqft: float | None
+    legal_description: str
+    reasons: str
+
+
 def local_date_key(timestamp: int, timezone_name: str = "America/New_York") -> str:
     return datetime.fromtimestamp(timestamp, tz=UTC).astimezone(
         ZoneInfo(timezone_name)
@@ -60,6 +86,18 @@ def _report_from_run(run: RunRecord) -> dict[str, Any]:
 def _label_is_important(label: str) -> bool:
     folded = label.casefold()
     return folded == "important" or folded.endswith("/important")
+
+
+def _label_is_acquisition(label: str) -> bool:
+    folded = label.strip().casefold()
+    return (
+        folded == "acquisitions"
+        or folded.startswith("acquisitions/")
+        or folded in {"wholesale", "wholesaler", "on market", "off market"}
+        or folded.endswith("/wholesale")
+        or folded.endswith("/on market")
+        or folded.endswith("/off market")
+    )
 
 
 def _outcome_is_important(outcome: dict[str, Any]) -> bool:
@@ -140,6 +178,70 @@ def daily_messages(
                 )
             )
     return rows
+
+
+def qualified_acquisition_properties(
+    runs: list[RunRecord],
+    *,
+    report_date: str,
+    timezone_name: str = "America/New_York",
+) -> list[QualifiedAcquisitionProperty]:
+    rows: list[QualifiedAcquisitionProperty] = []
+    for message in daily_messages(
+        runs,
+        report_date=report_date,
+        timezone_name=timezone_name,
+    ):
+        if not _label_is_acquisition(message.proposed_label):
+            continue
+        qualifying_records = [
+            record
+            for record in message.property_records
+            if isinstance(record, dict) and bool(record.get("qualifies"))
+        ]
+        for record in qualifying_records:
+            reasons = [
+                str(reason)
+                for reason in record.get("reasons") or []
+                if str(reason).strip()
+            ]
+            why = "; ".join(reasons) or message.why_important or message.reason
+            rows.append(
+                QualifiedAcquisitionProperty(
+                    run_id=message.run_id,
+                    run_mode=message.run_mode,
+                    run_time_label=message.run_time_label,
+                    message_id=message.message_id,
+                    subject=message.subject,
+                    sender=message.sender,
+                    primary_label=message.proposed_label,
+                    secondary_label=message.secondary_label,
+                    confidence=message.confidence,
+                    why_important=why,
+                    address=str(record.get("address") or ""),
+                    asking_price=_optional_float(record.get("asking_price")),
+                    folio=str(record.get("folio") or ""),
+                    municipality=str(record.get("municipality") or ""),
+                    land_use=str(record.get("land_use") or ""),
+                    lookup_status=str(record.get("lookup_status") or ""),
+                    is_folio_30=bool(record.get("is_folio_30")),
+                    is_unincorporated=bool(record.get("is_unincorporated")),
+                    has_double_lot=bool(record.get("has_double_lot")),
+                    lot_size_sqft=_optional_float(record.get("lot_size_sqft")),
+                    legal_description=str(record.get("legal_description") or ""),
+                    reasons="; ".join(reasons),
+                )
+            )
+    return rows
+
+
+def _optional_float(value: Any) -> float | None:
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _column_name(index: int) -> str:
@@ -273,11 +375,16 @@ def build_daily_report_xlsx(
     timezone_name: str = "America/New_York",
 ) -> bytes:
     messages = daily_messages(runs, report_date=report_date, timezone_name=timezone_name)
-    important = [message for message in messages if message.is_important]
-    label_counts = Counter(
-        message.secondary_label or message.proposed_label or "No label"
-        for message in messages
+    acquisition_messages = [
+        message for message in messages if _label_is_acquisition(message.proposed_label)
+    ]
+    qualified_properties = qualified_acquisition_properties(
+        runs,
+        report_date=report_date,
+        timezone_name=timezone_name,
     )
+    source_message_ids = {property_row.message_id for property_row in qualified_properties}
+    label_counts = Counter(property_row.primary_label for property_row in qualified_properties)
     total_scanned = 0
     for run in runs:
         if local_date_key(run.created_at, timezone_name) == report_date:
@@ -289,82 +396,22 @@ def build_daily_report_xlsx(
         ["Timezone", timezone_name],
         ["User email", user.email],
         ["Total emails scanned", total_scanned],
-        ["Processed message rows", len(messages)],
-        ["Important emails", len(important)],
+        ["Acquisition emails identified", len(acquisition_messages)],
+        ["Qualified properties exported", len(qualified_properties)],
+        ["Source emails with qualified properties", len(source_message_ids)],
         ["Generated at", local_datetime_label(int(datetime.now(UTC).timestamp()), timezone_name)],
         [],
-        ["Label", "Count"],
+        ["Acquisition label", "Qualified property count"],
     ]
     summary_rows.extend([label, count] for label, count in sorted(label_counts.items()))
-
-    important_rows: list[list[Any]] = [
-        [
-            "Run time",
-            "Subject",
-            "Sender",
-            "Primary label",
-            "Secondary label",
-            "Confidence",
-            "Why important",
-            "Evidence",
-            "Gmail message ID",
-        ]
-    ]
-    important_rows.extend(
-        [
-            message.run_time_label,
-            message.subject,
-            message.sender,
-            message.proposed_label,
-            message.secondary_label,
-            message.confidence,
-            message.why_important,
-            message.evidence,
-            message.message_id,
-        ]
-        for message in important
-    )
-
-    processed_rows: list[list[Any]] = [
-        [
-            "Run time",
-            "Run mode",
-            "Subject",
-            "Sender",
-            "Primary label",
-            "Secondary label",
-            "Confidence",
-            "Action",
-            "Reason",
-            "Evidence",
-            "Important",
-            "Gmail message ID",
-        ]
-    ]
-    processed_rows.extend(
-        [
-            message.run_time_label,
-            message.run_mode,
-            message.subject,
-            message.sender,
-            message.proposed_label,
-            message.secondary_label,
-            message.confidence,
-            message.action,
-            message.reason,
-            message.evidence,
-            "Yes" if message.is_important else "No",
-            message.message_id,
-        ]
-        for message in messages
-    )
 
     property_rows: list[list[Any]] = [
         [
             "Run time",
-            "Email subject",
-            "Address",
+            "Acquisition type",
+            "Property address",
             "Asking price",
+            "Why important",
             "Folio",
             "Municipality",
             "Land use",
@@ -372,38 +419,72 @@ def build_daily_report_xlsx(
             "Folio 30",
             "Unincorporated",
             "Double lot",
-            "Target match",
             "Lot size sqft",
-            "Reasons",
+            "Legal description",
+            "Email subject",
+            "Sender",
+            "Primary label",
+            "Secondary label",
+            "Confidence",
+            "Gmail message ID",
         ]
     ]
-    for message in messages:
-        for record in message.property_records:
-            property_rows.append(
-                [
-                    message.run_time_label,
-                    message.subject,
-                    record.get("address") or "",
-                    record.get("asking_price"),
-                    record.get("folio") or "",
-                    record.get("municipality") or "",
-                    record.get("land_use") or "",
-                    record.get("lookup_status") or "",
-                    bool(record.get("is_folio_30")),
-                    bool(record.get("is_unincorporated")),
-                    bool(record.get("has_double_lot")),
-                    bool(record.get("qualifies")),
-                    record.get("lot_size_sqft"),
-                    "; ".join(str(item) for item in record.get("reasons") or []),
-                ]
-            )
+    if qualified_properties:
+        property_rows.extend(
+            [
+                property_row.run_time_label,
+                property_row.primary_label.rsplit("/", 1)[-1],
+                property_row.address,
+                property_row.asking_price,
+                property_row.why_important,
+                property_row.folio,
+                property_row.municipality,
+                property_row.land_use,
+                property_row.lookup_status,
+                property_row.is_folio_30,
+                property_row.is_unincorporated,
+                property_row.has_double_lot,
+                property_row.lot_size_sqft,
+                property_row.legal_description,
+                property_row.subject,
+                property_row.sender,
+                property_row.primary_label,
+                property_row.secondary_label,
+                property_row.confidence,
+                property_row.message_id,
+            ]
+            for property_row in qualified_properties
+        )
+    else:
+        property_rows.append(
+            [
+                "",
+                "",
+                "No qualified acquisition properties found for this report date.",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ]
+        )
 
-    sheet_names = ["Daily Summary", "Important Emails", "All Processed", "Properties"]
+    sheet_names = ["Qualified Properties", "Daily Summary"]
     sheets = [
-        _sheet_xml(summary_rows, widths=[28, 80]),
-        _sheet_xml(important_rows, widths=[24, 42, 34, 24, 34, 12, 80, 55, 24]),
-        _sheet_xml(processed_rows, widths=[24, 18, 42, 34, 24, 34, 12, 28, 65, 55, 12, 24]),
-        _sheet_xml(property_rows, widths=[24, 42, 30, 14, 20, 22, 32, 18, 12, 16, 12, 14, 14, 75]),
+        _sheet_xml(property_rows, widths=[24, 18, 32, 14, 85, 20, 22, 34, 18, 12, 16, 12, 14, 60, 42, 34, 24, 34, 12, 24]),
+        _sheet_xml(summary_rows, widths=[34, 80]),
     ]
 
     output = BytesIO()
