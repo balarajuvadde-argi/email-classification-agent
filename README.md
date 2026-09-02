@@ -77,6 +77,13 @@ prefix, excluded municipality, land use, email asking price, and full legal desc
 and the configured acquisition criteria pass; failed lookups remain unverified and are never
 treated as important targets.
 
+For short-term debugging, the web process also keeps a bounded in-memory structured-event
+cache for run lifecycle events, Gmail/OpenAI API calls, property candidate extraction,
+property lookup results, and report-email attempts. Authenticated users can inspect their
+own current-process events at `/debug/events?limit=200` or filter one run with
+`/debug/events?run_id=<run id>`. This cache is intentionally temporary and is cleared on
+process restart; it does not store full email bodies.
+
 The acquisition values are deployment configuration, not code constants. Change them through
 environment variables or SAM parameters:
 

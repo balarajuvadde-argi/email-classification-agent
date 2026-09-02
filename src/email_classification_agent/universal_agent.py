@@ -541,6 +541,7 @@ class UniversalClassificationAgent:
                         evidence=tuple(decision.evidence),
                         secondary_label=secondary_label,
                         property_records=property_records,
+                        email_received_at_ms=message.internal_date_ms,
                     )
                 )
             except ProviderClassificationError:

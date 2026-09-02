@@ -136,6 +136,7 @@ class UniversalOutcome:
     evidence: tuple[str, ...] = ()
     secondary_label: str | None = None
     property_records: tuple[dict[str, Any], ...] = ()
+    email_received_at_ms: int = 0
 
     def as_dict(self) -> dict[str, Any]:
         value = asdict(self)

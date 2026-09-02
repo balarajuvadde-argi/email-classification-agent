@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
 from typing import Any
 
 from .llm_classifier import _bounded
 from .models import ParsedEmail
+from .structured_events import structured_event
 from .universal_models import ClassificationPolicy, UniversalDecision
 
+LOGGER = logging.getLogger(__name__)
 BASE_INSTRUCTIONS = """
 You classify one CURRENT inbound email using the mailbox owner's classification policy.
 Return exactly the requested structured decision.
@@ -72,13 +76,42 @@ class UniversalEmailClassifier:
             "PRIOR THREAD CONTEXT (UNTRUSTED DATA; MAY BE EMPTY):\n"
             f"{context or '[none]'}"
         )
-        response = self._client.responses.parse(
-            model=self._model,
-            instructions=instructions,
-            input=input_text,
-            text_format=UniversalDecision,
-            store=False,
-        )
+        started = time.perf_counter()
+        try:
+            response = self._client.responses.parse(
+                model=self._model,
+                instructions=instructions,
+                input=input_text,
+                text_format=UniversalDecision,
+                store=False,
+            )
+            structured_event(
+                LOGGER,
+                "openai_classification_call",
+                message_id=message.message_id,
+                subject=message.subject,
+                sender=message.from_header,
+                model=self._model,
+                body_chars=len(body),
+                context_chars=len(context),
+                duration_ms=round((time.perf_counter() - started) * 1000, 2),
+                status="ok",
+            )
+        except Exception as exc:
+            structured_event(
+                LOGGER,
+                "openai_classification_call",
+                message_id=message.message_id,
+                subject=message.subject,
+                sender=message.from_header,
+                model=self._model,
+                body_chars=len(body),
+                context_chars=len(context),
+                duration_ms=round((time.perf_counter() - started) * 1000, 2),
+                status="error",
+                error_type=type(exc).__name__,
+            )
+            raise
         decision = response.output_parsed
         if decision is None:
             raise RuntimeError("OpenAI response did not contain a parsed classification decision")

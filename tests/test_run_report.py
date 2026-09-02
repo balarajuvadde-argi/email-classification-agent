@@ -23,6 +23,7 @@ def _run() -> RunRecord:
                 "proposed_label": "Acquisitions/Wholesale",
                 "secondary_label": "Acquisitions/Wholesale/Miami-Dade/Important",
                 "confidence": 0.98,
+                "email_received_at_ms": 1788283200000,
                 "reason": "Multiple off-market properties for sale.",
                 "property_records": [
                     {
@@ -33,6 +34,9 @@ def _run() -> RunRecord:
                         "land_use": "RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
                         "lot_size_sqft": 10000,
                         "qualifies": True,
+                        "is_folio_30": True,
+                        "is_unincorporated": True,
+                        "has_double_lot": True,
                         "reasons": [
                             "folio starts with 30 (unincorporated Miami-Dade)",
                             "legal description indicates double/multiple lots",
@@ -76,6 +80,7 @@ def test_important_acquisition_properties_keeps_only_qualified_acquisition_rows(
     assert len(rows) == 1
     assert rows[0].address == "123 NW 1st St"
     assert rows[0].asking_price == 250000
+    assert rows[0].email_received_time
     assert "folio starts with 30" in rows[0].reasons
 
 
@@ -90,4 +95,7 @@ def test_build_important_properties_xlsx_creates_valid_workbook() -> None:
 
     assert "[Content_Types].xml" in names
     assert "Important Properties" in workbook_xml
+    assert "Email Received Time" in sheet
+    assert "Price Tag" not in sheet
+    assert "Requirement Tags" not in sheet
     assert "123 NW 1st St" in sheet

@@ -29,6 +29,7 @@ from .run_report import (
     important_acquisition_properties,
     important_properties_filename,
 )
+from .structured_events import event_context, structured_event
 from .token_security import (
     FernetTokenCipher,
     KmsTokenCipher,
@@ -403,135 +404,152 @@ class WebRuntime:
         return run
 
     def process_run(self, user_id: str, run_id: str) -> RunRecord | None:
-        now = int(time.time())
-        running = self.store.claim_run(
-            user_id,
-            run_id,
-            now,
-            now + self.settings.worker_lease_seconds,
-        )
-        if running is None:
-            return None
-        user = self.store.get_user(user_id)
-        if user is None:
-            self.store.release_active_run(user_id, run_id)
-            return None
-        if user.policy is None:
-            return self._fail_run(running, "Gmail connection or policy no longer exists")
-        if running.connection_version != user.connection_version:
-            return self._fail_run(running, "Gmail connection changed before the queued run started")
-        if user.consent_version != self.settings.disclosure_version:
-            return self._fail_run(running, "The current privacy notice must be accepted again")
-        if user.policy.policy_hash != running.policy_hash:
-            return self._fail_run(running, "Policy changed before the queued run started")
-        if running.mode == "automatic" and not user.policy.automatic_enabled:
-            return self._fail_run(running, "Automatic classification was disabled")
-
-        try:
-            self._assert_current_connection(
-                user,
-                require_automatic=running.mode == "automatic",
+        with event_context(run_id=run_id, user_id=user_id):
+            structured_event(LOGGER, "run_claim_started")
+            now = int(time.time())
+            running = self.store.claim_run(
+                user_id,
+                run_id,
+                now,
+                now + self.settings.worker_lease_seconds,
             )
-            credentials = credentials_from_grant(
-                self.cipher.decrypt(user.user_id, user.encrypted_grant),
-                self.client_config,
-            )
-            gmail = self._gmail_factory(credentials)
+            if running is None:
+                structured_event(LOGGER, "run_claim_skipped", reason="not_claimable")
+                return None
+            structured_event(LOGGER, "run_claimed", mode=running.mode, attempt=running.attempts)
+            user = self.store.get_user(user_id)
+            if user is None:
+                self.store.release_active_run(user_id, run_id)
+                structured_event(LOGGER, "run_released_without_user")
+                return None
+            if user.policy is None:
+                return self._fail_run(running, "Gmail connection or policy no longer exists")
+            if running.connection_version != user.connection_version:
+                return self._fail_run(running, "Gmail connection changed before the queued run started")
+            if user.consent_version != self.settings.disclosure_version:
+                return self._fail_run(running, "The current privacy notice must be accepted again")
+            if user.policy.policy_hash != running.policy_hash:
+                return self._fail_run(running, "Policy changed before the queued run started")
+            if running.mode == "automatic" and not user.policy.automatic_enabled:
+                return self._fail_run(running, "Automatic classification was disabled")
 
-            def operation_guard() -> None:
+            try:
                 self._assert_current_connection(
                     user,
                     require_automatic=running.mode == "automatic",
                 )
+                credentials = credentials_from_grant(
+                    self.cipher.decrypt(user.user_id, user.encrypted_grant),
+                    self.client_config,
+                )
+                gmail = self._gmail_factory(credentials)
 
-            agent = UniversalClassificationAgent(
-                gmail,
-                self._classifier_factory(),
-                expected_email=user.email,
-                operation_guard=operation_guard,
-                property_client=self._property_client,
-            )
-            consumed_plan_id = ""
-            if running.mode == "preview":
-                report = agent.preview(user.policy)
-                operation_guard()
-                plan_id = secrets.token_urlsafe(32)
-                self.store.put_plan(
-                    plan_id,
-                    ActionPlan(
-                        user_id=user.user_id,
-                        policy_hash=user.policy.policy_hash,
-                        mailbox=user.email,
-                        outcomes=tuple(report.outcomes),
-                        expires_at=int(time.time()) + self.settings.plan_ttl_seconds,
-                        connection_version=user.connection_version,
-                    ),
-                )
-                preview_activation_hash = (
-                    user.policy.activation_hash
-                    if report.failed == 0 and report.scanned > 0
-                    else ""
-                )
-            elif running.mode == "automatic":
-                report = agent.run_automatic(user.policy)
-                plan_id = ""
-            elif running.mode == "apply":
-                plan = self.store.get_plan(running.plan_id)
-                if plan is None:
-                    raise RuntimeError("Preview plan expired or was already applied")
-                if plan.user_id != user.user_id:
-                    raise RuntimeError("Preview plan belongs to another user")
-                if plan.connection_version != user.connection_version:
-                    raise RuntimeError("Preview plan belongs to an earlier Gmail connection")
-                report = agent.apply_plan(user.policy, plan)
-                plan_id = ""
-                consumed_plan_id = running.plan_id
-            else:
-                raise RuntimeError("Unsupported queued run mode")
-            completed = replace(
-                running,
-                status="completed" if report.failed == 0 else "completed_with_errors",
-                updated_at=int(time.time()),
-                report_json=json.dumps(report.as_dict(), ensure_ascii=False),
-                plan_id=plan_id,
-                error="",
-                lease_expires_at=0,
-            )
-            if not self.store.update_run(completed):
-                return None
-            if running.mode in {"automatic", "apply"}:
-                self._send_completed_run_report(user, gmail, completed)
-            if running.mode == "preview" and preview_activation_hash:
-                with suppress(Exception):
-                    self.store.mark_policy_previewed(
-                        user.user_id,
-                        preview_activation_hash,
-                        user.connection_version,
+                def operation_guard() -> None:
+                    self._assert_current_connection(
+                        user,
+                        require_automatic=running.mode == "automatic",
                     )
-            if consumed_plan_id:
-                with suppress(Exception):
-                    self.store.consume_plan(consumed_plan_id)
-            with suppress(Exception):
-                self.store.release_active_run(user_id, run_id)
-            return completed
-        except Exception as exc:  # noqa: BLE001 - worker records a safe failure
-            #LOGGER.error(
-            #     "Classification run %s failed (%s)",
-            #     running.run_id,
-            #     type(exc).__name__,
-            # )
-            message = self._classification_failure_message(exc)
-            if self.queue is not None and running.attempts < 3:
-                retry = replace(
-                    running,
-                    status="retry",
-                    updated_at=int(time.time()),
-                    error=message,
+
+                agent = UniversalClassificationAgent(
+                    gmail,
+                    self._classifier_factory(),
+                    expected_email=user.email,
+                    operation_guard=operation_guard,
+                    property_client=self._property_client,
                 )
-                self.store.update_run(retry)
-                raise RuntimeError("Classification job should be retried") from None
-            #LOGGER.error("Terminal classification failure for run %s", running.run_id)
-            return self._fail_run(running, message)
+                consumed_plan_id = ""
+                if running.mode == "preview":
+                    report = agent.preview(user.policy)
+                    operation_guard()
+                    plan_id = secrets.token_urlsafe(32)
+                    self.store.put_plan(
+                        plan_id,
+                        ActionPlan(
+                            user_id=user.user_id,
+                            policy_hash=user.policy.policy_hash,
+                            mailbox=user.email,
+                            outcomes=tuple(report.outcomes),
+                            expires_at=int(time.time()) + self.settings.plan_ttl_seconds,
+                            connection_version=user.connection_version,
+                        ),
+                    )
+                    preview_activation_hash = (
+                        user.policy.activation_hash
+                        if report.failed == 0 and report.scanned > 0
+                        else ""
+                    )
+                elif running.mode == "automatic":
+                    report = agent.run_automatic(user.policy)
+                    plan_id = ""
+                    preview_activation_hash = ""
+                elif running.mode == "apply":
+                    plan = self.store.get_plan(running.plan_id)
+                    if plan is None:
+                        raise RuntimeError("Preview plan expired or was already applied")
+                    if plan.user_id != user.user_id:
+                        raise RuntimeError("Preview plan belongs to another user")
+                    if plan.connection_version != user.connection_version:
+                        raise RuntimeError("Preview plan belongs to an earlier Gmail connection")
+                    report = agent.apply_plan(user.policy, plan)
+                    plan_id = ""
+                    consumed_plan_id = running.plan_id
+                    preview_activation_hash = ""
+                else:
+                    raise RuntimeError("Unsupported queued run mode")
+                completed = replace(
+                    running,
+                    status="completed" if report.failed == 0 else "completed_with_errors",
+                    updated_at=int(time.time()),
+                    report_json=json.dumps(report.as_dict(), ensure_ascii=False),
+                    plan_id=plan_id,
+                    error="",
+                    lease_expires_at=0,
+                )
+                if not self.store.update_run(completed):
+                    return None
+                structured_event(
+                    LOGGER,
+                    "run_completed",
+                    mode=completed.mode,
+                    status=completed.status,
+                    scanned=report.scanned,
+                    proposed=report.proposed,
+                    labeled=report.labeled,
+                    failed=report.failed,
+                )
+                if running.mode in {"automatic", "apply"}:
+                    self._send_completed_run_report(user, gmail, completed)
+                if running.mode == "preview" and preview_activation_hash:
+                    with suppress(Exception):
+                        self.store.mark_policy_previewed(
+                            user.user_id,
+                            preview_activation_hash,
+                            user.connection_version,
+                        )
+                if consumed_plan_id:
+                    with suppress(Exception):
+                        self.store.consume_plan(consumed_plan_id)
+                with suppress(Exception):
+                    self.store.release_active_run(user_id, run_id)
+                return completed
+            except Exception as exc:  # noqa: BLE001 - worker records a safe failure
+                structured_event(
+                    LOGGER,
+                    "run_failed",
+                    mode=running.mode,
+                    error_type=type(exc).__name__,
+                )
+                message = self._classification_failure_message(exc)
+                if self.queue is not None and running.attempts < 3:
+                    retry = replace(
+                        running,
+                        status="retry",
+                        updated_at=int(time.time()),
+                        error=message,
+                    )
+                    self.store.update_run(retry)
+                    raise RuntimeError("Classification job should be retried") from None
+                return self._fail_run(running, message)
 
     def _assert_current_connection(
         self,
@@ -598,6 +616,7 @@ class WebRuntime:
             timezone_name=self.settings.automatic_schedule_timezone,
         )
         if not important_rows:
+            structured_event(LOGGER, "important_property_report_skipped", reason="no_qualified_properties")
             return
         recipient = self.settings.report_email_recipient or user.email
         workbook = build_important_properties_xlsx(
@@ -621,6 +640,13 @@ class WebRuntime:
             "Preview runs do not send reports; this email is sent only after an applied or scheduled run."
         )
         try:
+            structured_event(
+                LOGGER,
+                "important_property_report_send_started",
+                recipient=recipient,
+                property_count=len(important_rows),
+                filename=filename,
+            )
             gmail.send_report_email(
                 recipient=recipient,
                 subject=subject,
@@ -634,11 +660,25 @@ class WebRuntime:
                 user.user_id,
                 len(important_rows),
             )
+            structured_event(
+                LOGGER,
+                "important_property_report_email_sent",
+                recipient=recipient,
+                property_count=len(important_rows),
+                filename=filename,
+            )
         except Exception:
             LOGGER.exception(
                 "important_property_report_email_failed run_id=%s user_id=%s",
                 run.run_id,
                 user.user_id,
+            )
+            structured_event(
+                LOGGER,
+                "important_property_report_email_failed",
+                recipient=recipient,
+                property_count=len(important_rows),
+                filename=filename,
             )
 
     def classify_uploaded_eml(self, user: UserRecord, data: bytes) -> dict[str, Any]:

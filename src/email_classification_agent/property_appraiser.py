@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import urllib.parse
@@ -10,8 +11,9 @@ from typing import Any
 
 from .heuristics import _DIRECTION, _STREET_TYPE, ADDRESS_RE, MONEY_RE
 from .models import ParsedEmail
+from .structured_events import structured_event
 
-# LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://apps.miamidadepa.gov/PApublicServiceProxy/PaServicesProxy.ashx"
 DEFAULT_EXCLUDED_MUNICIPALITIES = frozenset({"MIAMI GARDENS", "OPA-LOCKA", "OPALOCKA", "NORTH MIAMI"})
@@ -35,7 +37,11 @@ DEFAULT_MIAMI_DADE_ZIPS = frozenset(
 )
 ZIP_RE = re.compile(r"(?<!\d)3[0-4]\d{3}(?!\d)")
 ASKING_PRICE_MARKER_RE = re.compile(
-    r"\b(?:asking(?:\s+price)?|ask|offer(?:ed)?\s+(?:price|at)|list(?:ing)?\s+price|price)\s*[:#-]?\s*",
+    r"\b(?:asking(?:\s+price)?|ask|offer(?:ed)?\s+(?:price|at)|list(?:ing)?\s+price|price|only)\s*[:#-]?\s*",
+    re.I,
+)
+CURRENT_PRICE_MARKER_RE = re.compile(
+    r"\b(?:now|reduced|reduction|reduced\s+to)\s*[:#-]?\s*",
     re.I,
 )
 
@@ -57,7 +63,13 @@ class PropertyRecord:
     reasons: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self) | {"reasons": list(self.reasons)}
+        return asdict(self) | {"reasons": list(self.reasons), "price_tag": _price_tag(self)}
+
+
+def _price_tag(record: PropertyRecord) -> str:
+    if record.asking_price is None:
+        return "Price Missing"
+    return "Target Match" if record.asking_price <= _price_target() else "Above Target"
 
 
 class MiamiDadePropertyClient:
@@ -74,21 +86,25 @@ class MiamiDadePropertyClient:
 
     def lookup_email(self, message: ParsedEmail) -> list[PropertyRecord]:
         candidates = _extract_candidates(message)
-        # LOGGER.info(
-        #     "Property Appraiser: Extracted %d candidate address(es) from email '%s'",
-        #     len(candidates),
-        #     message.subject,
-        # )
+        structured_event(
+            LOGGER,
+            "property_candidates_extracted",
+            message_id=message.message_id,
+            subject=message.subject,
+            candidate_count=len(candidates),
+            candidates=[{"address": address, "asking_price": price} for address, price in candidates],
+        )
         return [self.lookup(address, price) for address, price in candidates]
 
     def lookup(self, address: str, asking_price: float | None = None) -> PropertyRecord:
         clean_addr = _clean_address_query(address)
-        # LOGGER.info(
-        #     "Miami-Dade PA: Querying address '%s' (cleaned: '%s', asking_price=%s)",
-        #     address,
-        #     clean_addr,
-        #     asking_price,
-        # )
+        structured_event(
+            LOGGER,
+            "miami_dade_property_lookup_started",
+            address=address,
+            cleaned_address=clean_addr,
+            asking_price=asking_price,
+        )
         try:
             search = self._request(
                 {
@@ -114,9 +130,26 @@ class MiamiDadePropertyClient:
                     "folioNumber": re.sub(r"[^0-9]", "", folio),
                 }
             )
-            return _record_from_detail(address, asking_price, folio, match, detail)
-        except Exception:
-            # LOGGER.warning("Miami-Dade PA lookup exception for '%s': %s", address, exc)
+            record = _record_from_detail(address, asking_price, folio, match, detail)
+            structured_event(
+                LOGGER,
+                "miami_dade_property_lookup_completed",
+                address=address,
+                lookup_status=record.lookup_status,
+                qualifies=record.qualifies,
+                folio=record.folio,
+                municipality=record.municipality,
+                asking_price=record.asking_price,
+                reasons=record.reasons,
+            )
+            return record
+        except Exception as exc:
+            structured_event(
+                LOGGER,
+                "miami_dade_property_lookup_failed",
+                address=address,
+                error_type=type(exc).__name__,
+            )
             return _unverified(address, asking_price, "lookup_failed")
 
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
@@ -149,7 +182,13 @@ def _clean_address_query(raw: str) -> str:
         )
     )
     if matches:
-        return matches[-1].group(0).strip(" ,.-")
+        candidate = matches[-1].group(0).strip(" ,.-")
+        directional_starts = list(
+            re.finditer(rf"\b\d{{1,6}}[A-Z]?\s+{_DIRECTION}\s+", candidate, re.I)
+        )
+        if directional_starts and directional_starts[-1].start() > 0:
+            candidate = candidate[directional_starts[-1].start() :]
+        return candidate.strip(" ,.-")
     return cleaned
 
 
@@ -163,12 +202,25 @@ def _extract_candidates(message: ParsedEmail) -> list[tuple[str, float | None]]:
     for index, match in enumerate(matches):
         raw_address = match.group(0).strip(" ,.-")
         clean_address = _clean_address_query(raw_address)
-        if clean_address.casefold() in seen_addresses:
+        dedupe_key = _address_dedupe_key(clean_address)
+        if dedupe_key in seen_addresses:
+            structured_event(
+                LOGGER,
+                "property_candidate_duplicate_skipped",
+                address=clean_address,
+                dedupe_key=dedupe_key,
+            )
             continue
 
         next_start = matches[index + 1].start() if index + 1 < len(matches) else len(text)
         property_block = text[match.start() : min(next_start, match.start() + 1_500)]
         if _has_only_non_target_zip(property_block):
+            structured_event(
+                LOGGER,
+                "property_candidate_non_target_zip_skipped",
+                address=clean_address,
+                zips=sorted(set(ZIP_RE.findall(property_block))),
+            )
             continue
         asking_price = _extract_asking_price(property_block)
         if asking_price is None:
@@ -176,7 +228,7 @@ def _extract_candidates(message: ParsedEmail) -> list[tuple[str, float | None]]:
             asking_price = _extract_asking_price(surrounding_context)
         
         candidates.append((clean_address, asking_price))
-        seen_addresses.add(clean_address.casefold())
+        seen_addresses.add(dedupe_key)
 
     return candidates
 
@@ -205,12 +257,48 @@ def _configured_miami_dade_zips() -> tuple[str, ...]:
 
 
 def _extract_asking_price(context: str) -> float | None:
-    for marker in ASKING_PRICE_MARKER_RE.finditer(context):
-        price_match = MONEY_RE.search(context[marker.end() : marker.end() + 90])
-        if price_match:
-            return _money_value(price_match.group(0))
+    current_prices = _prices_after_markers(CURRENT_PRICE_MARKER_RE, context)
+    if current_prices:
+        return current_prices[-1]
+    asking_prices = _prices_after_markers(ASKING_PRICE_MARKER_RE, context)
+    if asking_prices:
+        return asking_prices[-1]
+    if re.search(r"\bper\s+door\b", context[:160], re.I):
+        context = context[160:]
     price_match = MONEY_RE.search(context[:300])
     return _money_value(price_match.group(0)) if price_match else None
+
+
+def _prices_after_markers(pattern: re.Pattern[str], context: str) -> list[float]:
+    prices: list[float] = []
+    for marker in pattern.finditer(context):
+        nearby = context[marker.end() : marker.end() + 90]
+        price_match = MONEY_RE.search(nearby)
+        if price_match:
+            value = _money_value(price_match.group(0))
+            if value is not None:
+                prices.append(value)
+    return prices
+
+
+def _address_dedupe_key(address: str) -> str:
+    value = re.sub(r"[^\w\s]", " ", address.upper())
+    value = re.sub(r"\b(\d+)(?:ST|ND|RD|TH)\b", r"\1", value)
+    replacements = {
+        "STREET": "ST",
+        "AVENUE": "AVE",
+        "ROAD": "RD",
+        "TERRACE": "TER",
+        "DRIVE": "DR",
+        "COURT": "CT",
+        "PLACE": "PL",
+        "LANE": "LN",
+        "BOULEVARD": "BLVD",
+        "CIRCLE": "CIR",
+        "PARKWAY": "PKWY",
+    }
+    parts = [replacements.get(part, part) for part in value.split()]
+    return " ".join(parts)
 
 
 def _money_value(value: str) -> float | None:

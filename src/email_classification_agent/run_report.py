@@ -20,6 +20,7 @@ XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sh
 class ImportantPropertyRow:
     run_id: str
     run_time: str
+    email_received_time: str
     mailbox: str
     subject: str
     sender: str
@@ -61,6 +62,7 @@ def important_acquisition_properties(
                 ImportantPropertyRow(
                     run_id=run.run_id,
                     run_time=run_time,
+                    email_received_time=_format_email_received_time(outcome, timezone_name),
                     mailbox=mailbox,
                     subject=str(outcome.get("subject") or ""),
                     sender=str(outcome.get("sender") or ""),
@@ -93,6 +95,7 @@ def build_important_properties_xlsx(
         [
             "Run ID",
             "Run Time",
+            "Email Received Time",
             "Mailbox",
             "Source Email Subject",
             "Sender",
@@ -112,6 +115,7 @@ def build_important_properties_xlsx(
             [
                 row.run_id,
                 row.run_time,
+                row.email_received_time,
                 row.mailbox,
                 row.subject,
                 row.sender,
@@ -182,6 +186,13 @@ def _is_acquisition_label(label: str) -> bool:
 def _format_epoch(epoch_seconds: int, timezone_name: str, *, date_only: bool = False) -> str:
     timestamp = datetime.fromtimestamp(epoch_seconds, ZoneInfo(timezone_name))
     return timestamp.strftime("%Y-%m-%d" if date_only else "%Y-%m-%d %I:%M %p %Z")
+
+
+def _format_email_received_time(outcome: dict[str, Any], timezone_name: str) -> str:
+    value = _number(outcome.get("email_received_at_ms"))
+    if value is None or value <= 0:
+        return ""
+    return _format_epoch(int(value // 1000), timezone_name)
 
 
 def _number(value: Any) -> float | None:
