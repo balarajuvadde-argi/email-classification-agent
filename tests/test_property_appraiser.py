@@ -66,7 +66,6 @@ def test_property_lookup_extracts_addresses_and_qualifies_verified_record():
     assert all(record.is_folio_30 for record in records)
     assert all(record.has_double_lot for record in records)
     assert all(record.qualifies for record in records)
-    assert all(record.as_dict()["price_tag"] == "Target Match" for record in records)
     assert len(client.requests) == 4
 
 
@@ -205,7 +204,6 @@ def test_double_lot_above_price_target_is_not_target_match():
     assert len(records) == 1
     assert records[0].has_double_lot is True
     assert records[0].qualifies is False
-    assert records[0].as_dict()["price_tag"] == "Above Target"
     assert any("above $275,000 target" in r for r in records[0].reasons)
 
 

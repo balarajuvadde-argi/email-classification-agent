@@ -63,13 +63,7 @@ class PropertyRecord:
     reasons: tuple[str, ...] = ()
 
     def as_dict(self) -> dict[str, Any]:
-        return asdict(self) | {"reasons": list(self.reasons), "price_tag": _price_tag(self)}
-
-
-def _price_tag(record: PropertyRecord) -> str:
-    if record.asking_price is None:
-        return "Price Missing"
-    return "Target Match" if record.asking_price <= _price_target() else "Above Target"
+        return asdict(self) | {"reasons": list(self.reasons)}
 
 
 class MiamiDadePropertyClient:
