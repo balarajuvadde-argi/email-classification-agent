@@ -969,6 +969,7 @@ def _outcome_from_dict(value: dict[str, Any]) -> UniversalOutcome:
         evidence=tuple(value.get("evidence") or []),
         secondary_label=value.get("secondary_label"),
         property_records=tuple(value.get("property_records") or []),
+        email_received_at_ms=int(value.get("email_received_at_ms") or 0),
     )
 
 
@@ -1927,6 +1928,7 @@ class DynamoDbMultiTenantStore:
                 action=str(value.get("action") or ""),
                 reason=str(value.get("reason") or ""),
                 evidence=tuple(value.get("evidence") or []),
+                email_received_at_ms=int(value.get("email_received_at_ms") or 0),
             )
             for value in json.loads(str(item["outcomes_json"]))
         )

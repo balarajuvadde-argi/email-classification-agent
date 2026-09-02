@@ -10,6 +10,7 @@ from email_classification_agent.multitenant_store import InMemoryMultiTenantStor
 from email_classification_agent.token_security import FernetTokenCipher
 from email_classification_agent.web_config import WebSettings
 from email_classification_agent.web_runtime import WebRuntime
+from email_classification_agent.universal_models import UniversalOutcome, UniversalReport
 
 CLIENT_CONFIG = {
     "web": {
@@ -50,6 +51,65 @@ class _Gmail:
 
     def profile_email(self):
         return self.email
+
+
+class _ReportingGmail(_Gmail):
+    def __init__(self, email, sent_reports):
+        super().__init__(email)
+        self.sent_reports = sent_reports
+
+    def send_report_email(self, **kwargs):
+        self.sent_reports.append(kwargs)
+        return {"id": "sent-report"}
+
+
+class _ReportAgent:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def run_automatic(self, policy):
+        return _qualified_report(dry_run=False)
+
+
+def _qualified_report(*, dry_run: bool) -> UniversalReport:
+    report = UniversalReport(
+        mailbox="user@example.com",
+        dry_run=dry_run,
+        policy_hash="hash",
+        processed_label="EmailAgent/Processed/hash",
+        scanned=1,
+        proposed=0 if not dry_run else 1,
+        labeled=1 if not dry_run else 0,
+    )
+    report.outcomes.append(
+        UniversalOutcome(
+            message_id="m1",
+            thread_id="t1",
+            subject="Investor Alert",
+            sender="Deals <deals@example.com>",
+            proposed_label="Acquisitions/Wholesale",
+            confidence=0.98,
+            action="added:Acquisitions/Wholesale",
+            reason="Qualified off-market property.",
+            secondary_label="Acquisitions/Wholesale/Miami-Dade/Important",
+            property_records=(
+                {
+                    "address": "123 NW 1st St",
+                    "asking_price": 250000,
+                    "folio": "30-1234-001-0020",
+                    "municipality": "UNINCORPORATED COUNTY",
+                    "land_use": "RESIDENTIAL - SINGLE FAMILY : 1 UNIT",
+                    "lot_size_sqft": 10000,
+                    "qualifies": True,
+                    "reasons": [
+                        "folio starts with 30 (unincorporated Miami-Dade)",
+                        "asking price $250,000 is at or below $275,000 target",
+                    ],
+                },
+            ),
+        )
+    )
+    return report
 
 
 def _credentials():
@@ -251,3 +311,44 @@ def test_openai_404_failure_explains_model_configuration() -> None:
     message = runtime._classification_failure_message(MissingModelError())
 
     assert "OPENAI_MODEL" in message
+
+
+def test_automatic_run_emails_important_property_report(monkeypatch) -> None:
+    key = Fernet.generate_key()
+    sent_reports = []
+    store = InMemoryMultiTenantStore()
+    settings = replace(
+        _settings(key),
+        property_lookup_enabled=True,
+        report_email_enabled=True,
+        automatic_schedule_timezone="America/New_York",
+    )
+    runtime = WebRuntime(
+        settings,
+        store=store,
+        cipher=FernetTokenCipher(key),
+        oauth=_OAuth(),
+        identity_verifier=lambda token, audience: {
+            "sub": "sub",
+            "email": "user@example.com",
+            "email_verified": True,
+        },
+        gmail_factory=lambda credentials: _ReportingGmail("user@example.com", sent_reports),
+        classifier_factory=lambda: None,
+    )
+    monkeypatch.setattr(web_runtime, "UniversalClassificationAgent", _ReportAgent)
+    user = runtime.authorize_user(
+        _credentials(),
+        consent_version=settings.disclosure_version,
+        consented_at=123,
+    )
+    run = runtime.new_run(user, mode="automatic")
+
+    completed = runtime.process_run(user.user_id, run.run_id)
+
+    assert completed is not None
+    assert completed.status == "completed"
+    assert len(sent_reports) == 1
+    assert sent_reports[0]["recipient"] == "user@example.com"
+    assert sent_reports[0]["attachment_filename"].endswith(".xlsx")
+    assert sent_reports[0]["attachment_bytes"].startswith(b"PK")

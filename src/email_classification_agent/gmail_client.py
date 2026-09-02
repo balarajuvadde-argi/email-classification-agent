@@ -1,25 +1,44 @@
 from __future__ import annotations
 
+import base64
 import json
+import logging
+import time
+from email.message import EmailMessage
 from typing import Any
 
 from .config import Settings, secret_json
+from .structured_events import structured_event
 
 GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
+LOGGER = logging.getLogger(__name__)
 
 
 class GmailClient:
     """Small Gmail API wrapper that exposes bounded label writes.
 
-    This class intentionally has no archive, trash, delete, or send methods.
-    The only message write is add_labels(). When requested by the caller, it
-    removes the INBOX label only after adding a destination label, which is how
-    Gmail moves a message into labels without deleting it.
+    This class intentionally has no archive, trash, delete, forward, or generic
+    send methods. The bounded message writes are add_labels() and
+    send_report_email(), which is only used to deliver the generated acquisition
+    report workbook after a completed run.
     """
 
     def __init__(self, service: Any) -> None:
         self._service = service
         self._label_cache: list[dict[str, Any]] | None = None
+
+    def _execute_api(self, operation: str, request: Any, **fields: Any) -> Any:
+        started = time.perf_counter()
+        response = request.execute()
+        structured_event(
+            LOGGER,
+            "gmail_api_call",
+            operation=operation,
+            duration_ms=round((time.perf_counter() - started) * 1000, 2),
+            status="ok",
+            **fields,
+        )
+        return response
 
     @classmethod
     def from_settings(cls, settings: Settings) -> GmailClient:
@@ -50,11 +69,17 @@ class GmailClient:
         return cls(service)
 
     def profile_email(self) -> str:
-        profile = self._service.users().getProfile(userId="me").execute()
+        profile = self._execute_api(
+            "users.getProfile",
+            self._service.users().getProfile(userId="me"),
+        )
         return str(profile.get("emailAddress") or "").lower()
 
     def list_labels(self) -> list[dict[str, Any]]:
-        response = self._service.users().labels().list(userId="me").execute()
+        response = self._execute_api(
+            "labels.list",
+            self._service.users().labels().list(userId="me"),
+        )
         labels = list(response.get("labels") or [])
         self._label_cache = labels
         return labels
@@ -80,7 +105,11 @@ class GmailClient:
             "messageListVisibility": "show" if visible else "hide",
             "labelListVisibility": "labelShow" if visible else "labelHide",
         }
-        created = self._service.users().labels().create(userId="me", body=body).execute()
+        created = self._execute_api(
+            "labels.create",
+            self._service.users().labels().create(userId="me", body=body),
+            label=name,
+        )
         label_id = str(created.get("id") or "")
         if not label_id:
             raise RuntimeError(f"Gmail created label {name!r} without returning an ID")
@@ -102,7 +131,8 @@ class GmailClient:
             if remaining is not None and remaining <= 0:
                 break
             request_size = min(500, remaining) if remaining is not None else 500
-            response = (
+            response = self._execute_api(
+                "messages.list",
                 self._service.users()
                 .messages()
                 .list(
@@ -112,8 +142,8 @@ class GmailClient:
                     includeSpamTrash=False,
                     maxResults=request_size,
                     pageToken=page_token,
-                )
-                .execute()
+                ),
+                max_results=request_size,
             )
             ids.extend(str(item["id"]) for item in (response.get("messages") or []))
             page_token = response.get("nextPageToken")
@@ -125,7 +155,8 @@ class GmailClient:
         """List a bounded set of Inbox message IDs for a tenant-owned query."""
         if max_results < 1 or max_results > 500:
             raise ValueError("max_results must be between 1 and 500")
-        response = (
+        response = self._execute_api(
+            "messages.list",
             self._service.users()
             .messages()
             .list(
@@ -134,27 +165,31 @@ class GmailClient:
                 labelIds=["INBOX"],
                 includeSpamTrash=False,
                 maxResults=max_results,
-            )
-            .execute()
+            ),
+            max_results=max_results,
         )
-        return [str(item["id"]) for item in (response.get("messages") or [])]
+        ids = [str(item["id"]) for item in (response.get("messages") or [])]
+        structured_event(LOGGER, "gmail_messages_listed", returned_count=len(ids))
+        return ids
 
     def get_message(self, message_id: str) -> dict[str, Any]:
-        resource = (
+        resource = self._execute_api(
+            "messages.get",
             self._service.users()
             .messages()
-            .get(userId="me", id=message_id, format="full")
-            .execute()
+            .get(userId="me", id=message_id, format="full"),
+            message_id=message_id,
         )
         self._hydrate_text_part_bodies(resource)
         return resource
 
     def get_thread(self, thread_id: str) -> dict[str, Any]:
-        thread = (
+        thread = self._execute_api(
+            "threads.get",
             self._service.users()
             .threads()
-            .get(userId="me", id=thread_id, format="full")
-            .execute()
+            .get(userId="me", id=thread_id, format="full"),
+            thread_id=thread_id,
         )
         for message in thread.get("messages") or []:
             self._hydrate_text_part_bodies(message)
@@ -184,7 +219,8 @@ class GmailClient:
                 continue
             if body.get("data") or not body.get("attachmentId"):
                 continue
-            attachment = (
+            attachment = self._execute_api(
+                "messages.attachments.get",
                 self._service.users()
                 .messages()
                 .attachments()
@@ -192,8 +228,8 @@ class GmailClient:
                     userId="me",
                     messageId=message_id,
                     id=str(body["attachmentId"]),
-                )
-                .execute()
+                ),
+                message_id=message_id,
             )
             data = attachment.get("data")
             if data:
@@ -211,12 +247,54 @@ class GmailClient:
         if not clean_ids:
             return
         body = {"addLabelIds": clean_ids, "removeLabelIds": ["INBOX"] if remove_inbox else []}
-        (
+        self._execute_api(
+            "messages.modify",
             self._service.users()
             .messages()
-            .modify(userId="me", id=message_id, body=body)
-            .execute()
+            .modify(userId="me", id=message_id, body=body),
+            message_id=message_id,
+            add_label_count=len(clean_ids),
+            remove_inbox=remove_inbox,
         )
+
+    def send_report_email(
+        self,
+        *,
+        recipient: str,
+        subject: str,
+        body_text: str,
+        attachment_bytes: bytes,
+        attachment_filename: str,
+    ) -> dict[str, Any]:
+        clean_recipient = recipient.strip()
+        if "@" not in clean_recipient or any(char.isspace() for char in clean_recipient):
+            raise ValueError("Report recipient must be one email address")
+        if not attachment_bytes:
+            raise ValueError("Report attachment must not be empty")
+        if not attachment_filename.casefold().endswith(".xlsx"):
+            raise ValueError("Report attachment must be an .xlsx workbook")
+
+        message = EmailMessage()
+        message["To"] = clean_recipient
+        message["Subject"] = subject.strip()[:200] or "Inbox Pilot acquisition report"
+        message.set_content(body_text.strip() or "Attached is your acquisition property report.")
+        message.add_attachment(
+            attachment_bytes,
+            maintype="application",
+            subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=attachment_filename,
+        )
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+        response = self._execute_api(
+            "messages.send",
+            self._service.users()
+            .messages()
+            .send(userId="me", body={"raw": raw}),
+            recipient=clean_recipient,
+            attachment_filename=attachment_filename,
+            attachment_size=len(attachment_bytes),
+        )
+        return dict(response or {})
 
 
 def _credentials_from_settings(settings: Settings) -> Any:

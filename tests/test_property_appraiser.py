@@ -69,6 +69,113 @@ def test_property_lookup_extracts_addresses_and_qualifies_verified_record():
     assert len(client.requests) == 4
 
 
+def test_multifamily_blast_pairs_each_property_with_asking_price():
+    client = _FakePropertyClient()
+
+    records = client.lookup_email(
+        _message(
+            """
+            MULTI FAMILY Deals
+            NEW OFF MARKET
+            MULTI FAMILY!
+            2493 NW 91st St
+            Miami 33147
+            Asking Price: $685,000
+            Lot: 8,461
+
+            DUPLEX!
+            814 42nd St
+            West Palm Beach 33407
+            Asking Price: $390,000
+
+            DUPLEX!
+            88/90 NE 68th Ter
+            Miami 33138
+            Asking Price: $515,000
+
+            DUPLEX!
+            1100-1102 NW 57th St
+            Miami 33127
+            Asking Price: $500,000
+
+            DUPLEX!
+            1173-1175 NW 65th St�
+            �Miami 33150
+            Asking Price: $495,000
+            """
+        )
+    )
+
+    assert [record.address for record in records] == [
+        "2493 NW 91st St",
+        "90 NE 68th Ter",
+        "1102 NW 57th St",
+        "1175 NW 65th St",
+    ]
+    assert [record.asking_price for record in records] == [
+        685_000,
+        515_000,
+        500_000,
+        495_000,
+    ]
+
+
+def test_asking_price_is_preferred_over_arv_and_other_amounts():
+    client = _FakePropertyClient()
+
+    records = client.lookup_email(
+        _message(
+            "15141 SW 50th Ter, Miami, Florida, 33185\n"
+            "Asking $545,900\n"
+            "ARV $850,000\n"
+            "3 Beds / 2 Baths"
+        )
+    )
+
+    assert records[0].asking_price == 545_900
+
+
+def test_inline_property_block_can_still_find_asking_price():
+    client = _FakePropertyClient()
+
+    records = client.lookup_email(
+        _message(
+            "OFF MARKET MULTI FAMILY! 1310 NW 6th Ave fter upda Falorida City 33034 "
+            "Asking Price: $2,350,000 Sq. Ft: 8,597 Lot: 18,290 Yr. Built: 2023"
+        )
+    )
+
+    assert len(records) == 1
+    assert records[0].address == "1310 NW 6th Ave"
+    assert records[0].asking_price == 2_350_000
+
+
+def test_per_door_subject_price_is_not_used_and_duplicate_address_is_skipped():
+    client = _FakePropertyClient()
+
+    records = client.lookup_email(
+        _message(
+            """
+            Fwd: 7 Units in Miami — $125K/Door in Opportunity Zone
+            1133 NW 79 TER MIAMI, FL 33150
+            Call Michelle at 954-256-2305
+            Only $ 879,900
+            BEST PRICE AVAILABLE PER DOOR IN ZIP CODE
+            Type: Multi Family - 7 Units
+
+            1133 NW 79th Ter,
+            Miami FL 33150
+            Only $ 879,900
+            BEST PRICE AVAILABLE PER DOOR IN ZIP CODE
+            """
+        )
+    )
+
+    assert len(records) == 1
+    assert records[0].address == "1133 NW 79 TER"
+    assert records[0].asking_price == 879_900
+
+
 def test_single_lot_block_number_is_not_double_lot_or_target_match():
     client = _FakePropertyClient(
         legal=(

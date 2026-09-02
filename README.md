@@ -33,10 +33,11 @@ server-controlled Miami-Dade child labels. General Miami-Dade wholesale emails c
 carried into the reviewed apply plan.
 
 The server-controlled safety boundary is not externalized. It permits creation and addition
-of allow-listed **user** labels, and removes `INBOX` only from messages that receive a
-destination label so Gmail shows them under the chosen label instead of the Inbox. It has no
-delete, trash, send, forward, or destination-label removal action. Email and thread content
-are untrusted model input and cannot change this action boundary.
+of allow-listed **user** labels, removes `INBOX` only from messages that receive a
+destination label so Gmail shows them under the chosen label instead of the Inbox, and sends
+the mailbox owner a completed-run Excel report when qualified acquisition properties are
+found. It has no delete, trash, forward, or destination-label removal action. Email and
+thread content are untrusted model input and cannot change this action boundary.
 
 ## Web credential model
 
@@ -59,20 +60,29 @@ Any Google account may connect its own mailbox after its owner completes Google 
 Do not access a client's mailbox without that client's explicit authorization; do not ask for
 their Google password or OAuth token.
 
-The acquisition workflow can verify wholesale property addresses through the Miami-Dade
+The acquisition workflow can verify acquisition property addresses through the Miami-Dade
 Property Appraiser public search service. Its initial qualification rule is intentionally
 strict: the portal record must have a folio beginning with `30`, be a qualifying residential
 record, not be in an excluded municipality, have an email asking price at or below the
 configured target, and show double-lot/multiple-lot support when that requirement is enabled.
 Verification results are shown in the run report; an incomplete portal lookup never qualifies
-or writes the `<primary>/Miami-Dade/Important` label.
+or writes the `<primary>/Miami-Dade/Important` label. Applied and scheduled runs also build
+a small Excel workbook for the qualified properties from that completed run and email it to
+the connected mailbox, or `REPORT_EMAIL_RECIPIENT` when configured.
 
 When `PROPERTY_LOOKUP_ENABLED=true`, the worker searches the Miami-Dade Property Appraiser
-public service for each extracted property address in a wholesale email. It checks the folio
+public service for each extracted property address in an acquisition email. It checks the folio
 prefix, excluded municipality, land use, email asking price, and full legal description. The
 `<primary>/Miami-Dade/Important` label is created only when the website record is verified
 and the configured acquisition criteria pass; failed lookups remain unverified and are never
 treated as important targets.
+
+For short-term debugging, the web process also keeps a bounded in-memory structured-event
+cache for run lifecycle events, Gmail/OpenAI API calls, property candidate extraction,
+property lookup results, and report-email attempts. Authenticated users can inspect their
+own current-process events at `/debug/events?limit=200` or filter one run with
+`/debug/events?run_id=<run id>`. This cache is intentionally temporary and is cleared on
+process restart; it does not store full email bodies.
 
 The acquisition values are deployment configuration, not code constants. Change them through
 environment variables or SAM parameters:
@@ -203,7 +213,7 @@ Current-message content is the unit of action. Only earlier messages from the sa
 
 ## Message preservation and safety
 
-The Gmail wrapper can add labels and remove `INBOX` from messages that received a destination label. It has no trash, delete, send, forward, or destination-label removal method. A move-to-label write uses:
+The Gmail wrapper can add labels and remove `INBOX` from messages that received a destination label. It can also send the bounded completed-run Excel report when qualified acquisition properties are found. It has no trash, delete, forward, or destination-label removal method. A move-to-label write uses:
 
 ```json
 {

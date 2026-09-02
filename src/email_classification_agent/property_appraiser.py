@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import urllib.parse
@@ -10,8 +11,9 @@ from typing import Any
 
 from .heuristics import _DIRECTION, _STREET_TYPE, ADDRESS_RE, MONEY_RE
 from .models import ParsedEmail
+from .structured_events import structured_event
 
-# LOGGER = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 BASE_URL = "https://apps.miamidadepa.gov/PApublicServiceProxy/PaServicesProxy.ashx"
 DEFAULT_EXCLUDED_MUNICIPALITIES = frozenset({"MIAMI GARDENS", "OPA-LOCKA", "OPALOCKA", "NORTH MIAMI"})
@@ -19,6 +21,29 @@ DEFAULT_PRICE_TARGET = 275_000.0
 DEFAULT_REQUIRE_DOUBLE_LOT = True
 DEFAULT_QUALIFYING_LAND_USE_TERMS = ("SINGLE FAMILY", "DUPLEX", "2 UNITS", "TOWNHOUSE")
 DEFAULT_PROPERTY_LOOKUP_TIMEOUT_SECONDS = 12.0
+DEFAULT_MIAMI_DADE_ZIPS = frozenset(
+    [
+        "33010", "33012", "33013", "33014", "33015", "33016", "33018", "33030",
+        "33031", "33032", "33033", "33034", "33035", "33054", "33055", "33056",
+        "33101", "33109", "33122", "33125", "33126", "33127", "33128", "33129",
+        "33130", "33131", "33132", "33133", "33134", "33135", "33136", "33137",
+        "33138", "33139", "33140", "33141", "33142", "33143", "33144", "33145",
+        "33146", "33147", "33149", "33150", "33154", "33155", "33156", "33157",
+        "33158", "33160", "33161", "33162", "33165", "33166", "33167", "33168",
+        "33169", "33170", "33172", "33173", "33174", "33175", "33176", "33177",
+        "33178", "33179", "33180", "33181", "33182", "33183", "33184", "33185",
+        "33186", "33187", "33189", "33190", "33193", "33194", "33196", "33231",
+    ]
+)
+ZIP_RE = re.compile(r"(?<!\d)3[0-4]\d{3}(?!\d)")
+ASKING_PRICE_MARKER_RE = re.compile(
+    r"\b(?:asking(?:\s+price)?|ask|offer(?:ed)?\s+(?:price|at)|list(?:ing)?\s+price|price|only)\s*[:#-]?\s*",
+    re.I,
+)
+CURRENT_PRICE_MARKER_RE = re.compile(
+    r"\b(?:now|reduced|reduction|reduced\s+to)\s*[:#-]?\s*",
+    re.I,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,21 +80,25 @@ class MiamiDadePropertyClient:
 
     def lookup_email(self, message: ParsedEmail) -> list[PropertyRecord]:
         candidates = _extract_candidates(message)
-        # LOGGER.info(
-        #     "Property Appraiser: Extracted %d candidate address(es) from email '%s'",
-        #     len(candidates),
-        #     message.subject,
-        # )
+        structured_event(
+            LOGGER,
+            "property_candidates_extracted",
+            message_id=message.message_id,
+            subject=message.subject,
+            candidate_count=len(candidates),
+            candidates=[{"address": address, "asking_price": price} for address, price in candidates],
+        )
         return [self.lookup(address, price) for address, price in candidates]
 
     def lookup(self, address: str, asking_price: float | None = None) -> PropertyRecord:
         clean_addr = _clean_address_query(address)
-        # LOGGER.info(
-        #     "Miami-Dade PA: Querying address '%s' (cleaned: '%s', asking_price=%s)",
-        #     address,
-        #     clean_addr,
-        #     asking_price,
-        # )
+        structured_event(
+            LOGGER,
+            "miami_dade_property_lookup_started",
+            address=address,
+            cleaned_address=clean_addr,
+            asking_price=asking_price,
+        )
         try:
             search = self._request(
                 {
@@ -95,9 +124,26 @@ class MiamiDadePropertyClient:
                     "folioNumber": re.sub(r"[^0-9]", "", folio),
                 }
             )
-            return _record_from_detail(address, asking_price, folio, match, detail)
-        except Exception:
-            # LOGGER.warning("Miami-Dade PA lookup exception for '%s': %s", address, exc)
+            record = _record_from_detail(address, asking_price, folio, match, detail)
+            structured_event(
+                LOGGER,
+                "miami_dade_property_lookup_completed",
+                address=address,
+                lookup_status=record.lookup_status,
+                qualifies=record.qualifies,
+                folio=record.folio,
+                municipality=record.municipality,
+                asking_price=record.asking_price,
+                reasons=record.reasons,
+            )
+            return record
+        except Exception as exc:
+            structured_event(
+                LOGGER,
+                "miami_dade_property_lookup_failed",
+                address=address,
+                error_type=type(exc).__name__,
+            )
             return _unverified(address, asking_price, "lookup_failed")
 
     def _request(self, params: dict[str, str]) -> dict[str, Any]:
@@ -130,30 +176,123 @@ def _clean_address_query(raw: str) -> str:
         )
     )
     if matches:
-        return matches[-1].group(0).strip(" ,.-")
+        candidate = matches[-1].group(0).strip(" ,.-")
+        directional_starts = list(
+            re.finditer(rf"\b\d{{1,6}}[A-Z]?\s+{_DIRECTION}\s+", candidate, re.I)
+        )
+        if directional_starts and directional_starts[-1].start() > 0:
+            candidate = candidate[directional_starts[-1].start() :]
+        return candidate.strip(" ,.-")
     return cleaned
 
 
 
 def _extract_candidates(message: ParsedEmail) -> list[tuple[str, float | None]]:
-    text = re.sub(r"\s+", " ", f"{message.subject} {message.body_text}").strip()
+    text = _normalize_email_text(f"{message.subject}\n{message.body_text}")
     candidates: list[tuple[str, float | None]] = []
     seen_addresses: set[str] = set()
+    matches = list(ADDRESS_RE.finditer(text))
 
-    for match in ADDRESS_RE.finditer(text):
+    for index, match in enumerate(matches):
         raw_address = match.group(0).strip(" ,.-")
         clean_address = _clean_address_query(raw_address)
-        if clean_address.casefold() in seen_addresses:
+        dedupe_key = _address_dedupe_key(clean_address)
+        if dedupe_key in seen_addresses:
+            structured_event(
+                LOGGER,
+                "property_candidate_duplicate_skipped",
+                address=clean_address,
+                dedupe_key=dedupe_key,
+            )
             continue
 
-        context = text[match.start() : match.end() + 140]
-        price_match = MONEY_RE.search(context)
-        asking_price = _money_value(price_match.group(0)) if price_match else None
+        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        property_block = text[match.start() : min(next_start, match.start() + 1_500)]
+        if _has_only_non_target_zip(property_block):
+            structured_event(
+                LOGGER,
+                "property_candidate_non_target_zip_skipped",
+                address=clean_address,
+                zips=sorted(set(ZIP_RE.findall(property_block))),
+            )
+            continue
+        asking_price = _extract_asking_price(property_block)
+        if asking_price is None:
+            surrounding_context = text[max(0, match.start() - 120) : min(len(text), match.end() + 220)]
+            asking_price = _extract_asking_price(surrounding_context)
         
         candidates.append((clean_address, asking_price))
-        seen_addresses.add(clean_address.casefold())
+        seen_addresses.add(dedupe_key)
 
     return candidates
+
+
+def _normalize_email_text(value: str) -> str:
+    value = value.replace("\ufffd", "\n").replace("\xa0", " ")
+    value = re.sub(r"[\r\t]+", " ", value)
+    value = re.sub(r" {2,}", " ", value)
+    value = re.sub(r"\n{3,}", "\n\n", value)
+    return value.strip()
+
+
+def _has_only_non_target_zip(context: str) -> bool:
+    zips = set(ZIP_RE.findall(context))
+    return bool(zips) and zips.isdisjoint(_configured_miami_dade_zips())
+
+
+def _configured_miami_dade_zips() -> tuple[str, ...]:
+    values = _env_list("ACQUISITION_MIAMI_DADE_ZIPS", DEFAULT_MIAMI_DADE_ZIPS)
+    invalid = [value for value in values if not re.fullmatch(r"\d{5}", value)]
+    if invalid:
+        raise ValueError(
+            "ACQUISITION_MIAMI_DADE_ZIPS must be a comma-separated list of 5-digit ZIP codes"
+        )
+    return values
+
+
+def _extract_asking_price(context: str) -> float | None:
+    current_prices = _prices_after_markers(CURRENT_PRICE_MARKER_RE, context)
+    if current_prices:
+        return current_prices[-1]
+    asking_prices = _prices_after_markers(ASKING_PRICE_MARKER_RE, context)
+    if asking_prices:
+        return asking_prices[-1]
+    if re.search(r"\bper\s+door\b", context[:160], re.I):
+        context = context[160:]
+    price_match = MONEY_RE.search(context[:300])
+    return _money_value(price_match.group(0)) if price_match else None
+
+
+def _prices_after_markers(pattern: re.Pattern[str], context: str) -> list[float]:
+    prices: list[float] = []
+    for marker in pattern.finditer(context):
+        nearby = context[marker.end() : marker.end() + 90]
+        price_match = MONEY_RE.search(nearby)
+        if price_match:
+            value = _money_value(price_match.group(0))
+            if value is not None:
+                prices.append(value)
+    return prices
+
+
+def _address_dedupe_key(address: str) -> str:
+    value = re.sub(r"[^\w\s]", " ", address.upper())
+    value = re.sub(r"\b(\d+)(?:ST|ND|RD|TH)\b", r"\1", value)
+    replacements = {
+        "STREET": "ST",
+        "AVENUE": "AVE",
+        "ROAD": "RD",
+        "TERRACE": "TER",
+        "DRIVE": "DR",
+        "COURT": "CT",
+        "PLACE": "PL",
+        "LANE": "LN",
+        "BOULEVARD": "BLVD",
+        "CIRCLE": "CIR",
+        "PARKWAY": "PKWY",
+    }
+    parts = [replacements.get(part, part) for part in value.split()]
+    return " ".join(parts)
 
 
 def _money_value(value: str) -> float | None:

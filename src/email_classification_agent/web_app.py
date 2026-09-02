@@ -20,6 +20,7 @@ from pydantic import ValidationError
 
 from .multitenant_store import secret_hash
 from .policy_templates import POLICY_TEMPLATES, get_policy_template
+from .structured_events import recent_events
 from .universal_models import (
     ClassificationPolicy,
     OAuthStateRecord,
@@ -760,6 +761,24 @@ def create_app(
                 run_mode_label=_run_mode_label(run.mode),
             ),
         )
+
+    @app.get("/debug/events")
+    def debug_events(request: Request, limit: int = 200, run_id: str | None = None) -> Any:
+        authenticated = _session_user(request, runtime)
+        if not authenticated:
+            return {"events": []}
+        _, _, user = authenticated
+        if run_id:
+            run = runtime.store.get_run(user.user_id, run_id)
+            if run is None or run.connection_version != user.connection_version:
+                return {"events": []}
+        return {
+            "events": recent_events(
+                limit=limit,
+                run_id=run_id,
+                user_id=user.user_id,
+            )
+        }
 
     @app.post("/runs/{run_id}/apply")
     def apply_run(
