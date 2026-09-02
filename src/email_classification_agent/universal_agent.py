@@ -129,6 +129,18 @@ def _is_wholesale_primary(primary_label: str | None) -> bool:
     return folded in {"wholesale", "wholesaler", configured} or folded.endswith("/wholesale")
 
 
+def _is_acquisition_primary(primary_label: str | None) -> bool:
+    if not primary_label:
+        return False
+    folded = primary_label.casefold()
+    leaf = folded.rsplit("/", 1)[-1]
+    return (
+        folded.startswith("acquisitions/")
+        or _is_wholesale_primary(primary_label)
+        or leaf in {"on market", "on-market", "off market", "off-market"}
+    )
+
+
 def _on_market_label(allowed_labels: dict[str, str]) -> str | None:
     return _label_allowed(_configured_on_market_label(), allowed_labels)
 
@@ -207,7 +219,7 @@ def _deterministic_on_market_decision(
 
 
 def _miami_dade_label(primary_label: str | None, message: ParsedEmail) -> str | None:
-    if not _is_wholesale_primary(primary_label):
+    if not _is_acquisition_primary(primary_label):
         return None
     current_text = f"{message.subject} {message.body_text}"
     if any(re.search(rf"(?<!\d){zip_code}(?!\d)", current_text) for zip_code in _configured_miami_dade_zips()):
@@ -476,7 +488,7 @@ class UniversalClassificationAgent:
                     if (
                         self._property_client
                         and proposed_label
-                        and _is_wholesale_primary(proposed_label)
+                        and _is_acquisition_primary(proposed_label)
                         and secondary_label
                     )
                     else ()

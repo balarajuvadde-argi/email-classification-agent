@@ -51,8 +51,8 @@ class WebSettings:
     ai_provider_data_policy_url: str = (
         "https://developers.openai.com/api/docs/guides/your-data"
     )
-    privacy_effective_date: str = "2026-08-20"
-    privacy_notice_version: str = "2026-08-20.1"
+    privacy_effective_date: str = "2026-09-02"
+    privacy_notice_version: str = "2026-09-02.1"
     backup_recovery_days: int = 7
     mvp_mode: bool = False
     property_lookup_enabled: bool = False
@@ -71,6 +71,8 @@ class WebSettings:
     automatic_schedule_timezone: str = "America/New_York"
     automatic_schedule_local_times: tuple[str, ...] = ("10:00", "17:00")
     automatic_schedule_window_seconds: int = 900
+    report_email_enabled: bool = True
+    report_email_recipient: str = ""
 
     @property
     def production(self) -> bool:
@@ -154,10 +156,10 @@ class WebSettings:
                 or "https://developers.openai.com/api/docs/guides/your-data"
             ).strip(),
             privacy_effective_date=(
-                os.getenv("PRIVACY_EFFECTIVE_DATE") or "2026-08-20"
+                os.getenv("PRIVACY_EFFECTIVE_DATE") or "2026-09-02"
             ).strip(),
             privacy_notice_version=(
-                os.getenv("PRIVACY_NOTICE_VERSION") or "2026-08-20.1"
+                os.getenv("PRIVACY_NOTICE_VERSION") or "2026-09-02.1"
             ).strip(),
             backup_recovery_days=int(os.getenv("BACKUP_RECOVERY_DAYS") or "7"),
             mvp_mode=(os.getenv("MVP_MODE") or "false").strip().casefold() == "true",
@@ -201,6 +203,10 @@ class WebSettings:
             automatic_schedule_window_seconds=int(
                 os.getenv("AUTOMATIC_SCHEDULE_WINDOW_SECONDS") or "900"
             ),
+            report_email_enabled=(
+                os.getenv("REPORT_EMAIL_ENABLED") or "true"
+            ).strip().casefold() == "true",
+            report_email_recipient=(os.getenv("REPORT_EMAIL_RECIPIENT") or "").strip(),
         )
         settings.validate()
         return settings
@@ -312,6 +318,11 @@ class WebSettings:
             raise ValueError(
                 "AUTOMATIC_SCHEDULE_WINDOW_SECONDS must be between 60 and 3600"
             )
+        if self.report_email_recipient and (
+            "@" not in self.report_email_recipient
+            or any(char.isspace() for char in self.report_email_recipient)
+        ):
+            raise ValueError("REPORT_EMAIL_RECIPIENT must be one email address")
 
 
 @lru_cache(maxsize=8)

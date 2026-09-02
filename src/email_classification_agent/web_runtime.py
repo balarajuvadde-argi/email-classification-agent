@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import secrets
 import time
 import urllib.parse
@@ -23,6 +24,11 @@ from .multitenant_store import (
     PostgresMultiTenantStore,
 )
 from .property_appraiser import MiamiDadePropertyClient
+from .run_report import (
+    build_important_properties_xlsx,
+    important_acquisition_properties,
+    important_properties_filename,
+)
 from .token_security import (
     FernetTokenCipher,
     KmsTokenCipher,
@@ -41,7 +47,7 @@ from .universal_models import (
 )
 from .web_config import WebSettings, load_google_client_config, load_openai_api_key
 
-#LOGGER = logging.get#LOGGER(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class JobQueue(Protocol):
@@ -493,6 +499,8 @@ class WebRuntime:
             )
             if not self.store.update_run(completed):
                 return None
+            if running.mode in {"automatic", "apply"}:
+                self._send_completed_run_report(user, gmail, completed)
             if running.mode == "preview" and preview_activation_hash:
                 with suppress(Exception):
                     self.store.mark_policy_previewed(
@@ -576,6 +584,62 @@ class WebRuntime:
         report = agent.apply_plan(user.policy, plan).as_dict()
         self.store.consume_plan(plan_id)
         return report
+
+    def _send_completed_run_report(
+        self,
+        user: UserRecord,
+        gmail: GmailClient,
+        run: RunRecord,
+    ) -> None:
+        if not self.settings.report_email_enabled:
+            return
+        important_rows = important_acquisition_properties(
+            run,
+            timezone_name=self.settings.automatic_schedule_timezone,
+        )
+        if not important_rows:
+            return
+        recipient = self.settings.report_email_recipient or user.email
+        workbook = build_important_properties_xlsx(
+            user,
+            run,
+            timezone_name=self.settings.automatic_schedule_timezone,
+        )
+        filename = important_properties_filename(
+            run,
+            timezone_name=self.settings.automatic_schedule_timezone,
+        )
+        subject = (
+            f"{self.settings.service_name} important acquisition report "
+            f"({len(important_rows)} propert{'y' if len(important_rows) == 1 else 'ies'})"
+        )
+        body = (
+            f"{self.settings.service_name} completed run {run.run_id} for {user.email}.\n\n"
+            f"Attached are the {len(important_rows)} qualified acquisition propert"
+            f"{'y' if len(important_rows) == 1 else 'ies'} that matched the configured "
+            "Miami-Dade ZIP, folio, municipality, zoning/land-use, double-lot, and asking-price rules.\n\n"
+            "Preview runs do not send reports; this email is sent only after an applied or scheduled run."
+        )
+        try:
+            gmail.send_report_email(
+                recipient=recipient,
+                subject=subject,
+                body_text=body,
+                attachment_bytes=workbook,
+                attachment_filename=filename,
+            )
+            LOGGER.info(
+                "important_property_report_email_sent run_id=%s user_id=%s property_count=%s",
+                run.run_id,
+                user.user_id,
+                len(important_rows),
+            )
+        except Exception:
+            LOGGER.exception(
+                "important_property_report_email_failed run_id=%s user_id=%s",
+                run.run_id,
+                user.user_id,
+            )
 
     def classify_uploaded_eml(self, user: UserRecord, data: bytes) -> dict[str, Any]:
         self._require_current_consent(user)

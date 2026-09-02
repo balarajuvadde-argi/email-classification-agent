@@ -88,6 +88,7 @@ APP_ENV=staging
 MVP_MODE=true
 DATABASE_URL=<Render internal Postgres connection string>
 PROPERTY_LOOKUP_ENABLED=true
+REPORT_EMAIL_ENABLED=true
 OPENAI_API_KEY=your OpenAI project key
 OPENAI_MODEL=gpt-4o-mini
 GOOGLE_OAUTH_CLIENT_CONFIG_JSON=<complete Google Web client JSON>
@@ -124,11 +125,13 @@ database. If you created the database manually, use the **Internal Database URL*
 database page, not the external URL.
 
 `PROPERTY_LOOKUP_ENABLED=true` makes the worker call the Miami-Dade Property Appraiser's
-public address and folio search service for wholesale messages. The service is queried only
+public address and folio search service for acquisition messages. The service is queried only
 for extracted property addresses, at a bounded timeout. A failed or ambiguous lookup is
 reported as unverified and cannot create the Important child label. Only records that pass
-the configured acquisition criteria are routed to the Important child folder. Review the
-portal's terms, rate limits, and acceptable-use requirements before public use.
+the configured acquisition criteria are routed to the Important child folder. With
+`REPORT_EMAIL_ENABLED=true`, completed apply and scheduled runs email a small Excel report
+when at least one qualified property is found. Review the portal's terms, rate limits, and
+acceptable-use requirements before public use.
 
 The default acquisition settings match the current Miami-Dade workflow. Change these Render
 environment variables later if the client changes the target criteria:
@@ -142,6 +145,10 @@ ACQUISITION_REQUIRE_DOUBLE_LOT=true
 ACQUISITION_EXCLUDED_MUNICIPALITIES=MIAMI GARDENS,OPA-LOCKA,OPALOCKA,NORTH MIAMI
 ACQUISITION_QUALIFYING_LAND_USE_TERMS=SINGLE FAMILY,DUPLEX,2 UNITS,TOWNHOUSE
 PROPERTY_LOOKUP_TIMEOUT_SECONDS=12
+REPORT_EMAIL_ENABLED=true
+# Optional. Leave blank to email the connected Gmail user; set to maurice@sargigroup.com
+# only if every report from this deployment should always go to that address.
+REPORT_EMAIL_RECIPIENT=
 CANDIDATE_SCAN_WINDOW=100
 ```
 

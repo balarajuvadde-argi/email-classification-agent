@@ -35,6 +35,8 @@ services:
         value: 'true'
       - key: PROPERTY_LOOKUP_TIMEOUT_SECONDS
         value: '12'
+      - key: REPORT_EMAIL_ENABLED
+        value: 'true'
       - key: CANDIDATE_SCAN_WINDOW
         value: '100'
       - key: ON_MARKET_ROOT_DOMAINS
@@ -84,9 +86,9 @@ services:
       - key: SUPPORT_EMAIL
         sync: false
       - key: PRIVACY_EFFECTIVE_DATE
-        value: '2026-08-21'
+        value: '2026-09-02'
       - key: PRIVACY_NOTICE_VERSION
-        value: '2026-08-21.1'
+        value: '2026-09-02.1'
       - key: BACKUP_RECOVERY_DAYS
         value: '1'
       - key: SESSION_TTL_SECONDS
@@ -149,6 +151,8 @@ services:
         value: 'true'
       - key: PROPERTY_LOOKUP_TIMEOUT_SECONDS
         value: '12'
+      - key: REPORT_EMAIL_ENABLED
+        value: 'true'
       - key: CANDIDATE_SCAN_WINDOW
         value: '100'
       - key: ON_MARKET_ROOT_DOMAINS
@@ -207,9 +211,9 @@ services:
           name: inbox-pilot-mvp
           envVarKey: SUPPORT_EMAIL
       - key: PRIVACY_EFFECTIVE_DATE
-        value: '2026-08-21'
+        value: '2026-09-02'
       - key: PRIVACY_NOTICE_VERSION
-        value: '2026-08-21.1'
+        value: '2026-09-02.1'
       - key: BACKUP_RECOVERY_DAYS
         value: '1'
       - key: SESSION_TTL_SECONDS
@@ -272,6 +276,8 @@ services:
         value: 'true'
       - key: PROPERTY_LOOKUP_TIMEOUT_SECONDS
         value: '12'
+      - key: REPORT_EMAIL_ENABLED
+        value: 'true'
       - key: CANDIDATE_SCAN_WINDOW
         value: '100'
       - key: ON_MARKET_ROOT_DOMAINS
@@ -330,9 +336,9 @@ services:
           name: inbox-pilot-mvp
           envVarKey: SUPPORT_EMAIL
       - key: PRIVACY_EFFECTIVE_DATE
-        value: '2026-08-21'
+        value: '2026-09-02'
       - key: PRIVACY_NOTICE_VERSION
-        value: '2026-08-21.1'
+        value: '2026-09-02.1'
       - key: BACKUP_RECOVERY_DAYS
         value: '1'
       - key: SESSION_TTL_SECONDS

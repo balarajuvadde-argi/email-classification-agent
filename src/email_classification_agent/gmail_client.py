@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import json
+from email.message import EmailMessage
 from typing import Any
 
 from .config import Settings, secret_json
@@ -11,10 +13,10 @@ GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 class GmailClient:
     """Small Gmail API wrapper that exposes bounded label writes.
 
-    This class intentionally has no archive, trash, delete, or send methods.
-    The only message write is add_labels(). When requested by the caller, it
-    removes the INBOX label only after adding a destination label, which is how
-    Gmail moves a message into labels without deleting it.
+    This class intentionally has no archive, trash, delete, forward, or generic
+    send methods. The bounded message writes are add_labels() and
+    send_report_email(), which is only used to deliver the generated acquisition
+    report workbook after a completed run.
     """
 
     def __init__(self, service: Any) -> None:
@@ -217,6 +219,42 @@ class GmailClient:
             .modify(userId="me", id=message_id, body=body)
             .execute()
         )
+
+    def send_report_email(
+        self,
+        *,
+        recipient: str,
+        subject: str,
+        body_text: str,
+        attachment_bytes: bytes,
+        attachment_filename: str,
+    ) -> dict[str, Any]:
+        clean_recipient = recipient.strip()
+        if "@" not in clean_recipient or any(char.isspace() for char in clean_recipient):
+            raise ValueError("Report recipient must be one email address")
+        if not attachment_bytes:
+            raise ValueError("Report attachment must not be empty")
+        if not attachment_filename.casefold().endswith(".xlsx"):
+            raise ValueError("Report attachment must be an .xlsx workbook")
+
+        message = EmailMessage()
+        message["To"] = clean_recipient
+        message["Subject"] = subject.strip()[:200] or "Inbox Pilot acquisition report"
+        message.set_content(body_text.strip() or "Attached is your acquisition property report.")
+        message.add_attachment(
+            attachment_bytes,
+            maintype="application",
+            subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            filename=attachment_filename,
+        )
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+        response = (
+            self._service.users()
+            .messages()
+            .send(userId="me", body={"raw": raw})
+            .execute()
+        )
+        return dict(response or {})
 
 
 def _credentials_from_settings(settings: Settings) -> Any:

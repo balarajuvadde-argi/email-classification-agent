@@ -121,4 +121,4 @@ For `KEEP_IN_INBOX`:
 - do not add `Wholesale`;
 - add the hidden processed marker only when the decision is complete and safe to mark processed.
 
-The Gmail wrapper has no delete, trash, send, forward, or destination-label removal operation. Its message mutation can add labels and remove only `INBOX` from messages that received a destination label.
+The Gmail wrapper has no delete, trash, forward, or destination-label removal operation. Its message mutation can add labels and remove only `INBOX` from messages that received a destination label. It can also send the bounded completed-run Excel report when qualified acquisition properties are found.

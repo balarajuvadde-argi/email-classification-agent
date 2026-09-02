@@ -19,6 +19,25 @@ DEFAULT_PRICE_TARGET = 275_000.0
 DEFAULT_REQUIRE_DOUBLE_LOT = True
 DEFAULT_QUALIFYING_LAND_USE_TERMS = ("SINGLE FAMILY", "DUPLEX", "2 UNITS", "TOWNHOUSE")
 DEFAULT_PROPERTY_LOOKUP_TIMEOUT_SECONDS = 12.0
+DEFAULT_MIAMI_DADE_ZIPS = frozenset(
+    [
+        "33010", "33012", "33013", "33014", "33015", "33016", "33018", "33030",
+        "33031", "33032", "33033", "33034", "33035", "33054", "33055", "33056",
+        "33101", "33109", "33122", "33125", "33126", "33127", "33128", "33129",
+        "33130", "33131", "33132", "33133", "33134", "33135", "33136", "33137",
+        "33138", "33139", "33140", "33141", "33142", "33143", "33144", "33145",
+        "33146", "33147", "33149", "33150", "33154", "33155", "33156", "33157",
+        "33158", "33160", "33161", "33162", "33165", "33166", "33167", "33168",
+        "33169", "33170", "33172", "33173", "33174", "33175", "33176", "33177",
+        "33178", "33179", "33180", "33181", "33182", "33183", "33184", "33185",
+        "33186", "33187", "33189", "33190", "33193", "33194", "33196", "33231",
+    ]
+)
+ZIP_RE = re.compile(r"(?<!\d)3[0-4]\d{3}(?!\d)")
+ASKING_PRICE_MARKER_RE = re.compile(
+    r"\b(?:asking(?:\s+price)?|ask|offer(?:ed)?\s+(?:price|at)|list(?:ing)?\s+price|price)\s*[:#-]?\s*",
+    re.I,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,24 +155,62 @@ def _clean_address_query(raw: str) -> str:
 
 
 def _extract_candidates(message: ParsedEmail) -> list[tuple[str, float | None]]:
-    text = re.sub(r"\s+", " ", f"{message.subject} {message.body_text}").strip()
+    text = _normalize_email_text(f"{message.subject}\n{message.body_text}")
     candidates: list[tuple[str, float | None]] = []
     seen_addresses: set[str] = set()
+    matches = list(ADDRESS_RE.finditer(text))
 
-    for match in ADDRESS_RE.finditer(text):
+    for index, match in enumerate(matches):
         raw_address = match.group(0).strip(" ,.-")
         clean_address = _clean_address_query(raw_address)
         if clean_address.casefold() in seen_addresses:
             continue
 
-        context = text[match.start() : match.end() + 140]
-        price_match = MONEY_RE.search(context)
-        asking_price = _money_value(price_match.group(0)) if price_match else None
+        next_start = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        property_block = text[match.start() : min(next_start, match.start() + 1_500)]
+        if _has_only_non_target_zip(property_block):
+            continue
+        asking_price = _extract_asking_price(property_block)
+        if asking_price is None:
+            surrounding_context = text[max(0, match.start() - 120) : min(len(text), match.end() + 220)]
+            asking_price = _extract_asking_price(surrounding_context)
         
         candidates.append((clean_address, asking_price))
         seen_addresses.add(clean_address.casefold())
 
     return candidates
+
+
+def _normalize_email_text(value: str) -> str:
+    value = value.replace("\ufffd", "\n").replace("\xa0", " ")
+    value = re.sub(r"[\r\t]+", " ", value)
+    value = re.sub(r" {2,}", " ", value)
+    value = re.sub(r"\n{3,}", "\n\n", value)
+    return value.strip()
+
+
+def _has_only_non_target_zip(context: str) -> bool:
+    zips = set(ZIP_RE.findall(context))
+    return bool(zips) and zips.isdisjoint(_configured_miami_dade_zips())
+
+
+def _configured_miami_dade_zips() -> tuple[str, ...]:
+    values = _env_list("ACQUISITION_MIAMI_DADE_ZIPS", DEFAULT_MIAMI_DADE_ZIPS)
+    invalid = [value for value in values if not re.fullmatch(r"\d{5}", value)]
+    if invalid:
+        raise ValueError(
+            "ACQUISITION_MIAMI_DADE_ZIPS must be a comma-separated list of 5-digit ZIP codes"
+        )
+    return values
+
+
+def _extract_asking_price(context: str) -> float | None:
+    for marker in ASKING_PRICE_MARKER_RE.finditer(context):
+        price_match = MONEY_RE.search(context[marker.end() : marker.end() + 90])
+        if price_match:
+            return _money_value(price_match.group(0))
+    price_match = MONEY_RE.search(context[:300])
+    return _money_value(price_match.group(0)) if price_match else None
 
 
 def _money_value(value: str) -> float | None:

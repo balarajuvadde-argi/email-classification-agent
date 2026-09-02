@@ -12,10 +12,15 @@ class _Request:
 class _Messages:
     def __init__(self):
         self.calls = []
+        self.sent = []
 
     def modify(self, **kwargs):
         self.calls.append(kwargs)
         return _Request({})
+
+    def send(self, **kwargs):
+        self.sent.append(kwargs)
+        return _Request({"id": "sent-message"})
 
 
 class _Users:
@@ -64,5 +69,23 @@ def test_message_write_preserves_inbox_by_default() -> None:
 
 
 def test_wrapper_exposes_no_destructive_message_methods() -> None:
-    destructive_names = {"archive", "trash", "delete", "send", "remove_labels"}
+    destructive_names = {"archive", "trash", "delete", "forward", "remove_labels"}
     assert destructive_names.isdisjoint(set(dir(GmailClient)))
+
+
+def test_report_email_send_is_bounded_to_xlsx_attachment() -> None:
+    service = _Service()
+    client = GmailClient(service)
+
+    response = client.send_report_email(
+        recipient="user@example.com",
+        subject="Report",
+        body_text="Attached report.",
+        attachment_bytes=b"PK workbook bytes",
+        attachment_filename="report.xlsx",
+    )
+
+    assert response == {"id": "sent-message"}
+    assert service.messages_api.sent[0]["userId"] == "me"
+    raw = service.messages_api.sent[0]["body"]["raw"]
+    assert isinstance(raw, str)
