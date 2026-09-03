@@ -12,10 +12,14 @@ class _Request:
 class _Messages:
     def __init__(self):
         self.list_calls = []
+        self.pages = [
+            {"messages": [{"id": "m1"}, {"id": "m2"}]},
+        ]
 
     def list(self, **kwargs):
         self.list_calls.append(kwargs)
-        return _Request({"messages": [{"id": "m1"}, {"id": "m2"}]})
+        index = len(self.list_calls) - 1
+        return _Request(self.pages[index])
 
 
 class _Labels:
@@ -66,6 +70,23 @@ def test_candidate_query_is_limited_to_inbox_and_excludes_spam_trash() -> None:
     assert call["labelIds"] == ["INBOX"]
     assert call["includeSpamTrash"] is False
     assert '-label:"EmailAgent/Processed/v2"' in call["q"]
+
+
+def test_unbounded_message_listing_paginates_for_scheduled_runs() -> None:
+    service = _Service()
+    service.users_api.messages_api.pages = [
+        {"messages": [{"id": "m1"}], "nextPageToken": "page-2"},
+        {"messages": [{"id": "m2"}]},
+    ]
+    client = GmailClient(service)
+
+    ids = client.list_message_ids("in:inbox newer_than:1d", None)
+
+    assert ids == ["m1", "m2"]
+    first, second = service.users_api.messages_api.list_calls
+    assert first["maxResults"] == 500
+    assert first["pageToken"] is None
+    assert second["pageToken"] == "page-2"
 
 
 def test_label_visibility_matches_visible_and_hidden_roles() -> None:

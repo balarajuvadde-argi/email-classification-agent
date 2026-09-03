@@ -38,40 +38,50 @@ def _settings() -> WebSettings:
         queue_url=None,
         aws_region=None,
         automatic_schedule_timezone="America/New_York",
-        automatic_schedule_local_times=("10:00", "17:00"),
-        automatic_schedule_window_seconds=900,
+        automatic_schedule_local_times=("07:30", "15:30", "23:30"),
+        automatic_schedule_window_seconds=3600,
     )
 
 
 def test_miami_schedule_handles_dst_and_standard_time() -> None:
-    local_times = parse_local_times("10:00,17:00")
+    local_times = parse_local_times("07:30,15:30,23:30")
 
     assert next_scheduled_timestamp(
         _timestamp(2026, 8, 28, 13),
         timezone_name="America/New_York",
         local_times=local_times,
-    ) == _timestamp(2026, 8, 28, 14)
+    ) == _timestamp(2026, 8, 28, 19, 30)
     assert next_scheduled_timestamp(
         _timestamp(2026, 1, 15, 14),
         timezone_name="America/New_York",
         local_times=local_times,
-    ) == _timestamp(2026, 1, 15, 15)
+    ) == _timestamp(2026, 1, 15, 20, 30)
+    assert next_scheduled_timestamp(
+        _timestamp(2026, 8, 28, 20),
+        timezone_name="America/New_York",
+        local_times=local_times,
+    ) == _timestamp(2026, 8, 29, 3, 30)
+    assert next_scheduled_timestamp(
+        _timestamp(2026, 1, 16, 4),
+        timezone_name="America/New_York",
+        local_times=local_times,
+    ) == _timestamp(2026, 1, 16, 4, 30)
 
 
 def test_miami_schedule_window_allows_only_the_configured_local_times() -> None:
-    local_times = parse_local_times("10:00,17:00")
+    local_times = parse_local_times("07:30,15:30,23:30")
 
     assert is_in_scheduled_window(
-        _timestamp(2026, 8, 28, 14, 5),
+        _timestamp(2026, 8, 28, 11, 35),
         timezone_name="America/New_York",
         local_times=local_times,
-        window_seconds=900,
+        window_seconds=3600,
     )
     assert not is_in_scheduled_window(
-        _timestamp(2026, 8, 28, 15),
+        _timestamp(2026, 8, 28, 12, 31),
         timezone_name="America/New_York",
         local_times=local_times,
-        window_seconds=900,
+        window_seconds=3600,
     )
 
 
@@ -126,7 +136,7 @@ def test_scheduled_runner_postpones_due_users_until_next_miami_window(monkeypatc
     monkeypatch.setattr(scheduled_runner.time, "time", lambda: _timestamp(2026, 8, 28, 13))
 
     assert scheduled_runner.run_due_users() == 0
-    assert store.claims == [("u1", 0, _timestamp(2026, 8, 28, 14), "v1")]
+    assert store.claims == [("u1", 0, _timestamp(2026, 8, 28, 19, 30), "v1")]
 
 
 def test_scheduled_runner_queues_due_users_inside_miami_window(monkeypatch) -> None:
@@ -187,8 +197,8 @@ def test_scheduled_runner_queues_due_users_inside_miami_window(monkeypatch) -> N
 
     monkeypatch.setattr(scheduled_runner.WebSettings, "from_env", lambda: settings)
     monkeypatch.setattr(scheduled_runner, "WebRuntime", _Runtime)
-    monkeypatch.setattr(scheduled_runner.time, "time", lambda: _timestamp(2026, 8, 28, 14, 5))
+    monkeypatch.setattr(scheduled_runner.time, "time", lambda: _timestamp(2026, 8, 28, 11, 35))
 
     assert scheduled_runner.run_due_users() == 1
-    assert store.claims == [("u1", 0, _timestamp(2026, 8, 28, 21), "v1")]
+    assert store.claims == [("u1", 0, _timestamp(2026, 8, 28, 19, 30), "v1")]
     assert runs == [("u1", "automatic")]

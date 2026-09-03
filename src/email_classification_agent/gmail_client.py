@@ -151,24 +151,41 @@ class GmailClient:
                 break
         return ids
 
-    def list_message_ids(self, query: str, max_results: int) -> list[str]:
-        """List a bounded set of Inbox message IDs for a tenant-owned query."""
-        if max_results < 1 or max_results > 500:
+    def list_message_ids(self, query: str, max_results: int | None) -> list[str]:
+        """List Inbox message IDs for a tenant-owned query.
+
+        A numeric max_results keeps preview/manual runs bounded. Passing None is
+        reserved for scheduled automatic runs, where the app applies a separate
+        time-window filter and must not silently drop messages because of a UI
+        preview limit.
+        """
+        if max_results is not None and (max_results < 1 or max_results > 500):
             raise ValueError("max_results must be between 1 and 500")
-        response = self._execute_api(
-            "messages.list",
-            self._service.users()
-            .messages()
-            .list(
-                userId="me",
-                q=query,
-                labelIds=["INBOX"],
-                includeSpamTrash=False,
-                maxResults=max_results,
-            ),
-            max_results=max_results,
-        )
-        ids = [str(item["id"]) for item in (response.get("messages") or [])]
+        ids: list[str] = []
+        page_token: str | None = None
+        while True:
+            remaining = None if max_results is None else max_results - len(ids)
+            if remaining is not None and remaining <= 0:
+                break
+            request_size = min(500, remaining) if remaining is not None else 500
+            response = self._execute_api(
+                "messages.list",
+                self._service.users()
+                .messages()
+                .list(
+                    userId="me",
+                    q=query,
+                    labelIds=["INBOX"],
+                    includeSpamTrash=False,
+                    maxResults=request_size,
+                    pageToken=page_token,
+                ),
+                max_results=request_size,
+            )
+            ids.extend(str(item["id"]) for item in (response.get("messages") or []))
+            page_token = response.get("nextPageToken")
+            if not page_token:
+                break
         structured_event(LOGGER, "gmail_messages_listed", returned_count=len(ids))
         return ids
 

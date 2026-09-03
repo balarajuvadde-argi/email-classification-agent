@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from collections.abc import Callable
 
 from .domains import is_approved_domain, origin_domain
@@ -37,6 +38,7 @@ MIAMI_DADE_ZIPS = DEFAULT_MIAMI_DADE_ZIPS
 DEFAULT_MIAMI_DADE_LABEL_SUFFIX = "Miami-Dade"
 DEFAULT_MIAMI_DADE_IMPORTANT_SUFFIX = "Miami-Dade/Important"
 DEFAULT_CANDIDATE_SCAN_WINDOW = 100
+DEFAULT_AUTOMATIC_LOOKBACK_HOURS = 8
 DEFAULT_ON_MARKET_ROOT_DOMAINS = (
     "zillow.com",
     "redfin.com",
@@ -94,6 +96,27 @@ def _candidate_scan_window(message_limit: int) -> int:
         except ValueError as exc:
             raise ValueError("CANDIDATE_SCAN_WINDOW must be an integer") from exc
     return min(500, max(message_limit, configured))
+
+
+def _automatic_lookback_hours() -> int:
+    raw = os.getenv("AUTOMATIC_LOOKBACK_HOURS")
+    if raw is None or raw.strip() == "":
+        return DEFAULT_AUTOMATIC_LOOKBACK_HOURS
+    try:
+        value = int(raw.strip())
+    except ValueError as exc:
+        raise ValueError("AUTOMATIC_LOOKBACK_HOURS must be an integer") from exc
+    if not (1 <= value <= 168):
+        raise ValueError("AUTOMATIC_LOOKBACK_HOURS must be between 1 and 168")
+    return value
+
+
+def _automatic_query(policy: ClassificationPolicy, lookback_hours: int) -> str:
+    lookback_days = max(1, (lookback_hours + 23) // 24)
+    return (
+        f'{policy.gmail_query} -label:"{policy.processed_label}" '
+        f"newer_than:{lookback_days}d"
+    ).strip()
 
 
 def _configured_on_market_domains() -> tuple[str, ...]:
@@ -433,16 +456,24 @@ class UniversalClassificationAgent:
                 visible=True,
                 create=not dry_run,
             )
-        query = (
-            policy.gmail_query
-            if dry_run
-            else f'{policy.gmail_query} -label:"{policy.processed_label}"'
-        )
-        self._operation_guard()
-        message_limit = policy.max_messages_per_run
-        candidate_limit = _candidate_scan_window(message_limit)
-        message_ids = self._gmail.list_message_ids(query, candidate_limit)
-        messages = self._ordered_messages(message_ids)[:message_limit]
+        if dry_run:
+            query = policy.gmail_query
+            self._operation_guard()
+            message_limit = policy.max_messages_per_run
+            candidate_limit = _candidate_scan_window(message_limit)
+            message_ids = self._gmail.list_message_ids(query, candidate_limit)
+            messages = self._ordered_messages(message_ids)[:message_limit]
+        else:
+            lookback_hours = _automatic_lookback_hours()
+            query = _automatic_query(policy, lookback_hours)
+            cutoff_ms = (int(time.time()) - (lookback_hours * 60 * 60)) * 1000
+            self._operation_guard()
+            message_ids = self._gmail.list_message_ids(query, None)
+            messages = [
+                message
+                for message in self._ordered_messages(message_ids)
+                if message.internal_date_ms >= cutoff_ms
+            ]
         for message in messages:
             report.scanned += 1
             try:

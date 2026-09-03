@@ -38,11 +38,11 @@ class WebSettings:
     oauth_state_ttl_seconds: int = 600
     plan_ttl_seconds: int = 900
     run_ttl_seconds: int = 86_400
-    automatic_interval_seconds: int = 43_200
+    automatic_interval_seconds: int = 28_800
     worker_lease_seconds: int = 330
     manual_runs_per_day: int = 50
     eml_previews_per_day: int = 20
-    automatic_runs_per_day: int = 2
+    automatic_runs_per_day: int = 3
     service_name: str = "Inbox Pilot"
     operator_name: str = "Local development operator"
     privacy_contact_email: str = "privacy@localhost.invalid"
@@ -69,8 +69,9 @@ class WebSettings:
     default_automatic_enabled: bool = True
     scheduler_claim_delay_seconds: int = 3_600
     automatic_schedule_timezone: str = "America/New_York"
-    automatic_schedule_local_times: tuple[str, ...] = ("10:00", "17:00")
-    automatic_schedule_window_seconds: int = 900
+    automatic_schedule_local_times: tuple[str, ...] = ("07:30", "15:30", "23:30")
+    automatic_schedule_window_seconds: int = 3_600
+    automatic_lookback_hours: int = 8
     report_email_enabled: bool = True
     report_email_recipient: str = ""
 
@@ -132,13 +133,13 @@ class WebSettings:
             plan_ttl_seconds=int(os.getenv("ACTION_PLAN_TTL_SECONDS") or "900"),
             run_ttl_seconds=int(os.getenv("RUN_TTL_SECONDS") or "86400"),
             automatic_interval_seconds=int(
-                os.getenv("AUTOMATIC_INTERVAL_SECONDS") or "43200"
+                os.getenv("AUTOMATIC_INTERVAL_SECONDS") or "28800"
             ),
             worker_lease_seconds=int(os.getenv("WORKER_LEASE_SECONDS") or "330"),
             manual_runs_per_day=int(os.getenv("MANUAL_RUNS_PER_DAY") or "50"),
             eml_previews_per_day=int(os.getenv("EML_PREVIEWS_PER_DAY") or "20"),
             automatic_runs_per_day=int(
-                os.getenv("AUTOMATIC_RUNS_PER_DAY") or "2"
+                os.getenv("AUTOMATIC_RUNS_PER_DAY") or "3"
             ),
             service_name=(os.getenv("SERVICE_NAME") or "Inbox Pilot").strip(),
             operator_name=(
@@ -196,12 +197,15 @@ class WebSettings:
             automatic_schedule_local_times=tuple(
                 value.strip()
                 for value in (
-                    os.getenv("AUTOMATIC_SCHEDULE_LOCAL_TIMES") or "10:00,17:00"
+                    os.getenv("AUTOMATIC_SCHEDULE_LOCAL_TIMES") or "07:30,15:30,23:30"
                 ).split(",")
                 if value.strip()
             ),
             automatic_schedule_window_seconds=int(
-                os.getenv("AUTOMATIC_SCHEDULE_WINDOW_SECONDS") or "900"
+                os.getenv("AUTOMATIC_SCHEDULE_WINDOW_SECONDS") or "3600"
+            ),
+            automatic_lookback_hours=int(
+                os.getenv("AUTOMATIC_LOOKBACK_HOURS") or "8"
             ),
             report_email_enabled=(
                 os.getenv("REPORT_EMAIL_ENABLED") or "true"
@@ -318,6 +322,8 @@ class WebSettings:
             raise ValueError(
                 "AUTOMATIC_SCHEDULE_WINDOW_SECONDS must be between 60 and 3600"
             )
+        if not (1 <= self.automatic_lookback_hours <= 168):
+            raise ValueError("AUTOMATIC_LOOKBACK_HOURS must be between 1 and 168")
         if self.report_email_recipient and (
             "@" not in self.report_email_recipient
             or any(char.isspace() for char in self.report_email_recipient)
