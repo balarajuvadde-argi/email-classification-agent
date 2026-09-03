@@ -118,10 +118,12 @@ API, DynamoDB, KMS, FIFO queues, worker, scheduler, bounded quotas, TTLs, logs, 
 
 For a temporary free-tier demonstration, use the Render blueprint in [`render.yaml`](render.yaml)
 and follow [`docs/MVP_DEPLOYMENT.md`](docs/MVP_DEPLOYMENT.md). With `DATABASE_URL`, the Render
-profile persists tenant state in Render Postgres and includes two cron jobs that run the
-default automatic classifier at 10:00 AM and 5:00 PM in `America/New_York`; the cron jobs
-fire at both possible UTC offsets and the app gates execution so daylight saving time does
-not shift the client-facing schedule. Use a paid database plan before real public use.
+profile persists tenant state in Render Postgres and includes three cron jobs that run the
+default automatic classifier at 7:30 AM, 3:30 PM, and 11:30 PM in `America/New_York`;
+automatic runs process all unprocessed Inbox messages received in the configured 8-hour lookback window.
+The cron jobs fire at both possible UTC offsets and the app gates execution so daylight
+saving time does not shift the client-facing schedule. Use a paid database plan before real
+public use.
 
 ## Current launch status
 

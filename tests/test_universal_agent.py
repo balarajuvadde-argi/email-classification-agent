@@ -4,6 +4,7 @@ import time
 import pytest
 
 from email_classification_agent.property_appraiser import PropertyRecord
+from email_classification_agent import universal_agent
 from email_classification_agent.universal_agent import UniversalClassificationAgent
 from email_classification_agent.universal_models import (
     ActionPlan,
@@ -673,6 +674,51 @@ def test_candidate_scan_window_can_be_changed_from_environment(monkeypatch) -> N
     ).preview(policy)
 
     assert gmail.max_results == 7
+
+
+def test_automatic_run_processes_all_unprocessed_messages_in_lookback(monkeypatch) -> None:
+    now_seconds = 1_800_000_000
+    cutoff_ms = (now_seconds - 8 * 60 * 60) * 1000
+    resources = {
+        "old": _resource("old"),
+        "new1": _resource("new1"),
+        "new2": _resource("new2"),
+        "new3": _resource("new3"),
+    }
+    resources["old"]["internalDate"] = str(cutoff_ms - 1)
+    resources["new1"]["internalDate"] = str(cutoff_ms)
+    resources["new2"]["internalDate"] = str(cutoff_ms + 10_000)
+    resources["new3"]["internalDate"] = str(cutoff_ms + 20_000)
+    gmail = _Gmail()
+
+    def list_message_ids(query, max_results):
+        gmail.query = query
+        gmail.max_results = max_results
+        return ["old", "new1", "new2", "new3"]
+
+    gmail.list_message_ids = list_message_ids
+    gmail.get_message = lambda message_id: resources[message_id]
+    classifier = _Classifier(
+        UniversalDecision(label="Finance", confidence=0.96, reason="Invoice", evidence=[])
+    )
+    policy = ClassificationPolicy(
+        prompt="Label all invoices and payment receipts as Finance.",
+        labels=["Finance"],
+        max_messages_per_run=2,
+        automatic_enabled=True,
+    )
+    monkeypatch.setattr(universal_agent.time, "time", lambda: now_seconds)
+
+    report = UniversalClassificationAgent(
+        gmail, classifier, expected_email="user@example.com"
+    ).run_automatic(policy)
+
+    assert gmail.max_results is None
+    assert '-label:"EmailAgent/Processed/' in gmail.query
+    assert "newer_than:1d" in gmail.query
+    assert report.scanned == 3
+    assert [message.message_id for message in classifier.calls] == ["new3", "new2", "new1"]
+    assert [write[0] for write in gmail.writes] == ["new3", "new2", "new1"]
 
 
 def test_apply_reviewed_plan_adds_destination_and_processed_labels_only() -> None:
